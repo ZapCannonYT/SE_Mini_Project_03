@@ -4,6 +4,8 @@ uvicorn[standard]>=0.30
 pydantic-settings>=2.4
 python-multipart>=0.0.9
 sqlalchemy>=2.0
+pwdlib[argon2]>=0.2
+pyjwt>=2.9
 
 # Forecasting / analytics
 pandas>=2.2

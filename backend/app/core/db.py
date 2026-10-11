@@ -27,12 +27,18 @@ def _enable_sqlite_foreign_keys(dbapi_connection, _record) -> None:
 
 
 engine = make_engine(settings.database_url)
-SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+SessionLocal = sessionmaker(
+    bind=engine,
+    autoflush=False,
+    expire_on_commit=False,
+)
 
 
 def get_db() -> Iterator[Session]:
-    """FastAPI dependency: one session per request, always closed afterwards."""
+    """FastAPI dependency: one session per request."""
     db = SessionLocal()
+
     try:
         yield db
     finally:
@@ -40,7 +46,31 @@ def get_db() -> Iterator[Session]:
 
 
 def init_db(bind: Engine = engine) -> None:
-    """Create all tables that do not exist yet."""
-    import app.models  # noqa: F401  (registers every model on Base.metadata)
+    """Create tables and seed the default admin user."""
+
+    # Import models only after Base has been fully created.
+    import app.models  # noqa: F401
+
+    from app.core.security import hash_password
+    from app.models.user import Role, User
 
     Base.metadata.create_all(bind=bind)
+
+    with Session(bind) as db:
+        admin = (
+            db.query(User)
+            .filter(User.email == settings.admin_email)
+            .first()
+        )
+
+        if admin is None:
+            admin = User(
+                name="Admin",
+                email=settings.admin_email,
+                password_hash=hash_password(settings.admin_password),
+                role=Role.ADMIN,
+                is_active=True,
+            )
+
+            db.add(admin)
+            db.commit()

@@ -7,11 +7,19 @@ ROOT_DIR = Path(__file__).resolve().parents[3]
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=ROOT_DIR / ".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=ROOT_DIR / ".env",
+        extra="ignore",
+    )
 
     app_name: str = "DFIP"
     database_url: str = "sqlite:///./dfip.db"
-    secret_key: str = "change-me"
+
+    jwt_secret_key: str = "change-me"
+    access_token_expire_minutes: int = 60
+
+    admin_email: str = "admin@dfip.local"
+    admin_password: str = "Admin@123"
 
 
 settings = Settings()
