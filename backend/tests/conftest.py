@@ -1,9 +1,11 @@
 import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.db import Base, get_db, make_engine
-from app.core.security import hash_password
+from app.core.security import create_access_token, hash_password
 from app.main import app
 from app.models.user import Role, User
 
@@ -13,7 +15,6 @@ def engine():
     """Fresh in-memory SQLite database for each test."""
     eng = make_engine("sqlite://", poolclass=StaticPool)
 
-    # Create all tables
     import app.models  # noqa: F401
     Base.metadata.create_all(bind=eng)
 
@@ -43,7 +44,7 @@ def db(engine):
 def override_database(engine):
     """
     Make FastAPI use the fresh test database automatically.
-    Also seed the default admin user required by auth tests.
+    Seed the default admin user required by auth tests.
     """
     TestingSessionLocal = sessionmaker(
         bind=engine,
@@ -51,7 +52,6 @@ def override_database(engine):
         expire_on_commit=False,
     )
 
-    # Seed test admin
     with TestingSessionLocal() as session:
         admin = User(
             name="Admin",
@@ -76,3 +76,44 @@ def override_database(engine):
     yield
 
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def client():
+    """FastAPI test client."""
+    return TestClient(app)
+
+
+@pytest.fixture
+def auth_headers(db):
+    """auth_headers(Role.PLANNER) -> Authorization header for a user with that role."""
+
+    def make(role: Role) -> dict:
+        email = f"{role.value}@test.local"
+
+        user = db.scalar(
+            select(User).where(User.email == email)
+        )
+
+        if user is None:
+            user = User(
+                name=f"Test {role.value}",
+                email=email,
+                password_hash="not-used",
+                role=role,
+            )
+
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+
+        token = create_access_token(
+            subject=str(user.id),
+            role=role.value,
+        )
+
+        return {
+            "Authorization": f"Bearer {token}"
+        }
+
+    return make
