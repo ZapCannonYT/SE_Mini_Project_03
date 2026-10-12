@@ -4,44 +4,84 @@ from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.core.db import Base, get_db, init_db, make_engine
-from app.core.security import create_access_token
+from app.core.db import Base, get_db, make_engine
+from app.core.security import create_access_token, hash_password
 from app.main import app
-from app.models import Role, User
+from app.models.user import Role, User
 
 
 @pytest.fixture
 def engine():
     """Fresh in-memory SQLite database for each test."""
     eng = make_engine("sqlite://", poolclass=StaticPool)
-    init_db(bind=eng)
+
+    import app.models  # noqa: F401
+    Base.metadata.create_all(bind=eng)
+
     yield eng
+
     Base.metadata.drop_all(bind=eng)
     eng.dispose()
 
 
 @pytest.fixture
 def db(engine):
-    session = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)()
+    """Database session connected to the test database."""
+    TestingSessionLocal = sessionmaker(
+        bind=engine,
+        autoflush=False,
+        expire_on_commit=False,
+    )
+
+    session = TestingSessionLocal()
+
     yield session
+
     session.close()
 
 
-@pytest.fixture
-def client(engine):
-    """API client wired to the test database instead of dfip.db."""
-    testing_session = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+@pytest.fixture(autouse=True)
+def override_database(engine):
+    """
+    Make FastAPI use the fresh test database automatically.
+    Seed the default admin user required by auth tests.
+    """
+    TestingSessionLocal = sessionmaker(
+        bind=engine,
+        autoflush=False,
+        expire_on_commit=False,
+    )
+
+    with TestingSessionLocal() as session:
+        admin = User(
+            name="Admin",
+            email="admin@dfip.local",
+            password_hash=hash_password("Admin@123"),
+            role=Role.ADMIN,
+            is_active=True,
+        )
+
+        session.add(admin)
+        session.commit()
 
     def override_get_db():
-        session = testing_session()
+        session = TestingSessionLocal()
         try:
             yield session
         finally:
             session.close()
 
     app.dependency_overrides[get_db] = override_get_db
-    yield TestClient(app)
-    app.dependency_overrides.pop(get_db, None)
+
+    yield
+
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def client():
+    """FastAPI test client."""
+    return TestClient(app)
 
 
 @pytest.fixture
@@ -50,12 +90,30 @@ def auth_headers(db):
 
     def make(role: Role) -> dict:
         email = f"{role.value}@test.local"
-        user = db.scalar(select(User).where(User.email == email))
+
+        user = db.scalar(
+            select(User).where(User.email == email)
+        )
+
         if user is None:
-            user = User(name=f"Test {role.value}", email=email, password_hash="not-used", role=role)
+            user = User(
+                name=f"Test {role.value}",
+                email=email,
+                password_hash="not-used",
+                role=role,
+            )
+
             db.add(user)
             db.commit()
-        token = create_access_token(subject=str(user.id), role=role.value)
-        return {"Authorization": f"Bearer {token}"}
+            db.refresh(user)
+
+        token = create_access_token(
+            subject=str(user.id),
+            role=role.value,
+        )
+
+        return {
+            "Authorization": f"Bearer {token}"
+        }
 
     return make
