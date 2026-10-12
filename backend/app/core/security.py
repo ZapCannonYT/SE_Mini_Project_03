@@ -1,19 +1,18 @@
 from datetime import datetime, timedelta, timezone
-import os
 
 import jwt
 from pwdlib import PasswordHash
+
+from app.core.config import settings
 
 
 # Password hashing
 password_hasher = PasswordHash.recommended()
 
 # JWT settings
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-only-secret-change-me")
+JWT_SECRET_KEY = settings.jwt_secret_key
 JWT_ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = int(
-    os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60")
-)
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
 
 
 def hash_password(password: str) -> str:
