@@ -25,7 +25,8 @@ jobs:
         run: |
           pip install -r requirements.txt pytest-cov
           if [ -f .env.example ]; then cp .env.example .env; fi
-          pytest -q --cov=backend/app --cov-report=xml --junitxml=test-results.xml      - name: Build frontend (if present)
+          pytest -q --cov=backend/app --cov-report=xml --junitxml=test-results.xml
+      - name: Build frontend (if present)
         run: |
           if [ -f frontend/package.json ]; then
             cd frontend && (npm ci || npm install) && npm run build
