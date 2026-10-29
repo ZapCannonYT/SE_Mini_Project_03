@@ -1,0 +1,42 @@
+# Continuous Delivery: pushing a version tag (end of each sprint) runs the tests
+# again and publishes a GitHub Release with the source bundle and test reports.
+#   git tag -a v0.1.0 -m "Sprint 1 increment" && git push origin v0.1.0
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      JWT_SECRET_KEY: ci-test-secret-key-not-for-production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install and test
+        run: |
+          pip install -r requirements.txt pytest-cov
+          if [ -f .env.example ]; then cp .env.example .env; fi
+          pytest -q --cov=backend/app --cov-report=xml --junitxml=test-results.xml      - name: Build frontend (if present)
+        run: |
+          if [ -f frontend/package.json ]; then
+            cd frontend && (npm ci || npm install) && npm run build
+          fi
+      - name: Bundle
+        run: |
+          mkdir -p dist
+          git archive --format=zip -o "dist/dfip-${GITHUB_REF_NAME}-source.zip" HEAD
+          if [ -d frontend/dist ]; then (cd frontend && zip -qr "../dist/dfip-${GITHUB_REF_NAME}-frontend.zip" dist); fi
+          cp test-results.xml coverage.xml dist/
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: dist/*

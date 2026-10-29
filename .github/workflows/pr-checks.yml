@@ -1,0 +1,78 @@
+# Pull request automation: enforces the team's PR conventions and labels PRs.
+name: PR checks
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  conventions:
+    name: conventions
+    runs-on: ubuntu-latest
+    steps:
+      # PR title must follow Conventional Commits, e.g. "feat(api): sales CSV import".
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            test
+            docs
+            chore
+            ci
+            refactor
+          requireScope: false
+
+      # Branch name, linked issue and the PR template (.github/pull_request_template.md).
+      # Re-runs whenever the description is edited, so fix the description and the check turns green.
+      - name: Branch name, linked issue and PR template
+        env:
+          BRANCH: ${{ github.head_ref }}
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          fail=0
+          err() { echo "::error::$1"; fail=1; }
+          BODY=$(printf '%s' "$BODY" | tr -d '\r')   # PR bodies arrive with CRLF line endings
+
+          echo "$BRANCH" | grep -Eq '^(feat|fix|test|docs|chore|ci|refactor)/[a-z0-9._-]+$' \
+            || err "Branch '$BRANCH' must look like feat/<short-name> (types: feat, fix, test, docs, chore, ci, refactor)."
+
+          echo "$BODY" | grep -Eiq '(close[sd]?|fix(e[sd])?|resolve[sd]?) #[0-9]+' \
+            || err "Link the backlog issue under '## Linked issue', e.g. 'Closes #12'."
+
+          for h in "## Summary" "## Requirements covered" "## Test cases" "## How to test" "## Checklist"; do
+            echo "$BODY" | grep -Fq "$h" || err "Missing section '$h' - use the PR template."
+          done
+
+          # Summary, Requirements covered and Test cases must contain more than the template's comment.
+          for h in "Summary" "Requirements covered" "Test cases"; do
+            text=$(echo "$BODY" | awk -v h="## $h" '$0==h{f=1;next} /^## /{f=0} f' | sed 's/<!--.*-->//g' | tr -d '[:space:]')
+            [ -n "$text" ] || err "Section '## $h' is empty."
+          done
+
+          if echo "$BODY" | grep -Eq '^\s*- \[ \]'; then
+            err "Tick every checklist item (only when it is true) before merging."
+          fi
+          exit $fail
+
+  label:
+    name: label
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/labeler@v5
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          sync-labels: false
+
+      - name: Assign PR to its author
+        if: github.event.action == 'opened'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr edit ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --add-assignee ${{ github.event.pull_request.user.login }}

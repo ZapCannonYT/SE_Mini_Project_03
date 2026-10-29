@@ -1,0 +1,116 @@
+# Continuous Integration: runs on every push to main and on every pull request.
+# A PR cannot be merged until the "lint", "test" and "frontend" jobs pass
+# (enable this in Settings > Branches > Branch protection rule for main).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ruff
+        run: pip install ruff
+      # Blocking: syntax errors and undefined names only. Skips cleanly until the scaffold adds backend/.
+      - name: Ruff (errors)
+        run: if [ -d backend ]; then ruff check --select E9,F63,F7,F82 --output-format=github backend; else echo "No backend/ yet - skipping."; fi
+      # Advisory: full style report, never fails the build.
+      - name: Ruff (style, advisory)
+        run: if [ -d backend ]; then ruff check --exit-zero --output-format=github backend; fi
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    needs: lint
+    env:
+      # Test-only value so CI never relies on the dev key in .env.example. Never a real secret.
+      JWT_SECRET_KEY: ci-test-secret-key-not-for-production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for backend app
+        id: detect
+        run: |
+          if [ -f requirements.txt ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else echo "present=false" >> "$GITHUB_OUTPUT"; echo "No requirements.txt yet - skipping tests."; fi
+      - uses: actions/setup-python@v5
+        if: steps.detect.outputs.present == 'true'
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        if: steps.detect.outputs.present == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest-cov
+      - name: Prepare .env
+        if: steps.detect.outputs.present == 'true'
+        run: if [ -f .env.example ]; then cp .env.example .env; fi
+      - name: Run tests
+        if: steps.detect.outputs.present == 'true'
+        run: pytest -q --cov=backend/app --cov-report=term --cov-report=xml --junitxml=test-results.xml
+      - name: Upload test and coverage reports
+        if: always() && steps.detect.outputs.present == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            test-results.xml
+            coverage.xml
+      - name: Job summary
+        if: always() && steps.detect.outputs.present == 'true'
+        run: |
+          echo "### Test run" >> "$GITHUB_STEP_SUMMARY"
+          python - <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          import xml.etree.ElementTree as ET
+          try:
+              r = ET.parse("test-results.xml").getroot()
+              s = r if r.tag == "testsuite" else r.find("testsuite")
+              print(f"- Tests: {s.get('tests')}, failures: {s.get('failures')}, errors: {s.get('errors')}, skipped: {s.get('skipped')}")
+          except Exception as e:
+              print(f"- No test report ({e})")
+          try:
+              c = ET.parse("coverage.xml").getroot()
+              print(f"- Line coverage: {float(c.get('line-rate')) * 100:.1f}%")
+          except Exception:
+              pass
+          EOF
+
+  frontend:
+    name: frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for frontend app
+        id: detect
+        run: |
+          if [ -f frontend/package.json ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else echo "present=false" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/setup-node@v4
+        if: steps.detect.outputs.present == 'true'
+        with:
+          node-version: "20"
+      - name: Install and build
+        if: steps.detect.outputs.present == 'true'
+        working-directory: frontend
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+          npm run build
+          if npm run | grep -q " test"; then npm test -- --run || npm test; fi
+      - name: Skip (no frontend yet)
+        if: steps.detect.outputs.present != 'true'
+        run: echo "frontend/package.json not found - skipping frontend build."
