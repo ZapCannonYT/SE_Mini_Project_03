@@ -1,0 +1,19 @@
+# Used by .github/workflows/pr-checks.yml (actions/labeler@v5) to label PRs by the files they touch.
+"area: backend":
+  - changed-files:
+      - any-glob-to-any-file: ["backend/app/api/**", "backend/app/services/**", "backend/app/models/**", "backend/app/schemas/**", "backend/app/core/**"]
+"area: analytics":
+  - changed-files:
+      - any-glob-to-any-file: ["backend/app/analytics/**"]
+"area: frontend":
+  - changed-files:
+      - any-glob-to-any-file: ["frontend/**"]
+"area: docs":
+  - changed-files:
+      - any-glob-to-any-file: ["docs/**", "*.md"]
+"area: testing":
+  - changed-files:
+      - any-glob-to-any-file: ["backend/tests/**", "frontend/**/*.test.*"]
+"area: ci-cd":
+  - changed-files:
+      - any-glob-to-any-file: [".github/**"]

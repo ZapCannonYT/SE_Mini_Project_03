@@ -1,0 +1,38 @@
+name: User story
+description: A backlog item traced to an SRS requirement
+title: "[Story] "
+labels: ["type: story"]
+body:
+  - type: textarea
+    id: story
+    attributes:
+      label: User story
+      placeholder: As a <role>, I want <capability> so that <benefit>.
+    validations:
+      required: true
+  - type: input
+    id: reqs
+    attributes:
+      label: SRS requirements
+      placeholder: DFIP-F-004, DFIP-NF-003
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      placeholder: "- [ ] Given ..., when ..., then ..."
+    validations:
+      required: true
+  - type: input
+    id: tests
+    attributes:
+      label: STP test cases
+      placeholder: TC-PROD-01, TC-INV-01
+  - type: dropdown
+    id: points
+    attributes:
+      label: Story points
+      options: ["1", "2", "3", "5", "8"]
+    validations:
+      required: true
