@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     app_name: str = "DFIP"
     database_url: str = "sqlite:///./dfip.db"
     jwt_secret_key: str = ""
-
+    access_token_expire_minutes: int = 60
+    admin_email: str = "admin@dfip.local"
+    admin_password: str = "Admin@123"
 
 settings = Settings()
