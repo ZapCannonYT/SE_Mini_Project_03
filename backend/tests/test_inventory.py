@@ -1,3 +1,12 @@
+def test_inventory_requests_without_token_are_rejected(client, product_id):
+    get_response = client.get("/api/inventory")
+    assert get_response.status_code == 401
+
+    update_response = client.put(
+        f"/api/inventory/{product_id}",
+        json={"quantity": 50},
+    )
+    assert update_response.status_code == 401
 """Inventory storage and updates (DFIP-F-005, DFIP-F-006, TC-INV-01, TC-INV-02)."""
 import pytest
 
