@@ -70,3 +70,37 @@ Any subset of `name`, `category`, `unit`, `safety_stock`, `overstock_factor` (sa
 ### InventoryOut
 
 `product_id`, `sku`, `name`, `quantity`, `updated_at`, `updated_by` (user id of the last change).
+
+## User Administration (DFIP-F-021)
+
+All endpoints below require an admin Bearer token.
+
+| Method | Path | Purpose | Who | Request | Success |
+|---|---|---|---|---|---|
+| GET | `/api/users` | List all users | admin | - | 200 list of `UserOut` |
+| POST | `/api/users` | Create a user | admin | `UserCreate` | 201 `UserOut` |
+| PATCH | `/api/users/{user_id}/role` | Change a user's role | admin | `{"role": "admin\|planner\|viewer"}` | 200 `UserOut` |
+| PATCH | `/api/users/{user_id}/deactivate` | Deactivate a user | admin | - | 200 `UserOut` |
+
+### UserCreate
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `name` | string | yes | 1–100 characters |
+| `email` | string | yes | Valid email; must be unique |
+| `password` | string | yes | 8–128 characters |
+| `role` | string | yes | `admin`, `planner`, or `viewer` |
+
+### UserOut
+
+`id`, `name`, `email`, `role`, `is_active`, `created_at`.
+
+Passwords and password hashes are never returned.
+
+### Administration rules
+
+- Only admins can access user administration endpoints.
+- Admins cannot change their own role.
+- Admins cannot deactivate their own account.
+- Role changes apply on the next request.
+- Deactivated users cannot access protected endpoints.

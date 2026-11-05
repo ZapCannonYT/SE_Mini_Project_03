@@ -1,3 +1,42 @@
+def test_role_change_applies_on_next_request(
+    client, product_id, auth_headers, db
+):
+    # Get the viewer's existing token
+    viewer_headers = auth_headers(Role.VIEWER)
+    admin_headers = auth_headers(Role.ADMIN)
+
+    viewer = db.query(User).filter(
+        User.email == "viewer@test.local"
+    ).first()
+
+    # Viewer cannot update stock
+    before_change = client.put(
+        f"/api/inventory/{product_id}",
+        json={"quantity": 50},
+        headers=viewer_headers,
+    )
+
+    assert before_change.status_code == 403
+
+    # Admin promotes viewer to planner
+    role_response = client.patch(
+        f"/api/users/{viewer.id}/role",
+        json={"role": "planner"},
+        headers=admin_headers,
+    )
+
+    assert role_response.status_code == 200
+    assert role_response.json()["role"] == "planner"
+
+    # Use the SAME old token again
+    after_change = client.put(
+        f"/api/inventory/{product_id}",
+        json={"quantity": 50},
+        headers=viewer_headers,
+    )
+
+    assert after_change.status_code == 200
+    assert after_change.json()["quantity"] == 50
 def test_inventory_requests_without_token_are_rejected(client, product_id):
     get_response = client.get("/api/inventory")
     assert get_response.status_code == 401
@@ -10,7 +49,7 @@ def test_inventory_requests_without_token_are_rejected(client, product_id):
 """Inventory storage and updates (DFIP-F-005, DFIP-F-006, TC-INV-01, TC-INV-02)."""
 import pytest
 
-from app.models import Role
+from app.models import Role,User
 
 
 @pytest.fixture
