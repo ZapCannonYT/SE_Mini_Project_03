@@ -12,6 +12,48 @@ const ROLES = ['admin', 'planner', 'viewer']
 
 let db = null
 
+function pad2(n) {
+  return String(n).padStart(2, '0')
+}
+
+function formatDate(d) {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+}
+
+function todayString() {
+  return formatDate(new Date())
+}
+
+// Strict YYYY-MM-DD that is also a real calendar date.
+function isValidDateString(s) {
+  if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false
+  const [y, m, d] = s.split('-').map(Number)
+  const dt = new Date(y, m - 1, d)
+  return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d
+}
+
+// Deterministic 60 days of history ending yesterday (weekly cycle plus a slow seasonal drift).
+function seedSales(products) {
+  const sales = []
+  let id = 1
+  const days = 60
+  for (const p of products) {
+    for (let i = days; i >= 1; i--) {
+      const d = new Date()
+      d.setDate(d.getDate() - i)
+      const weekly = Math.sin(((d.getDay() + p.id) / 7) * 2 * Math.PI)
+      const seasonal = Math.cos((i / days) * Math.PI)
+      const base = 8 + ((p.id * 5) % 9)
+      const qty = Math.max(
+        0,
+        Math.round(base * (1 + 0.35 * weekly + 0.2 * seasonal) + ((i * p.id) % 3)),
+      )
+      sales.push({ id: id++, product_id: p.id, sale_date: formatDate(d), quantity_sold: qty })
+    }
+  }
+  return sales
+}
+
 function seed() {
   const now = new Date().toISOString()
   const users = [
@@ -47,7 +89,16 @@ function seed() {
     updated_at: now,
     updated_by: 'admin@dfip.local',
   }))
-  return { users, products, inventory, nextUserId: 4, nextProductId: rows.length + 1 }
+  const sales = seedSales(products)
+  return {
+    users,
+    products,
+    inventory,
+    sales,
+    nextUserId: 4,
+    nextProductId: rows.length + 1,
+    nextSaleId: sales.length + 1,
+  }
 }
 
 export function resetMockDb() {
@@ -145,6 +196,27 @@ const userNotFound = () =>
 function findProduct(id) {
   return db.products.find((p) => p.id === Number(id))
 }
+
+function saleOut(s) {
+  const p = db.products.find((x) => x.id === s.product_id)
+  return {
+    id: s.id,
+    product_id: s.product_id,
+    sku: p.sku,
+    name: p.name,
+    sale_date: s.sale_date,
+    quantity_sold: s.quantity_sold,
+  }
+}
+
+const saleExists = () =>
+  reply(409, {
+    code: 'sale_exists',
+    message: 'A sales record already exists for this product and date',
+    details: [],
+  })
+
+const invalidCsv = (message) => reply(422, { code: 'invalid_csv', message, details: [] })
 
 const WRITERS = ['admin', 'planner']
 const ADMIN_ONLY = ['admin']
@@ -290,6 +362,135 @@ const routes = [
       inv.updated_at = new Date().toISOString()
       inv.updated_by = user.email
       return reply(200, inventoryOut(inv))
+    },
+  },
+
+  // Sales (provisional contract, see README)
+  {
+    method: 'GET',
+    path: '/api/sales',
+    handler: ({ query }) => {
+      const errors = []
+      const { product_id: pid, start_date: start, end_date: end } = query
+      const hasVal = (v) => v !== undefined && v !== null && v !== ''
+      if (hasVal(pid) && !/^\d+$/.test(String(pid))) {
+        errors.push({ field: 'product_id', message: 'Product id must be an integer' })
+      }
+      if (hasVal(start) && !isValidDateString(start)) {
+        errors.push({ field: 'start_date', message: 'Start date must be YYYY-MM-DD' })
+      }
+      if (hasVal(end) && !isValidDateString(end)) {
+        errors.push({ field: 'end_date', message: 'End date must be YYYY-MM-DD' })
+      }
+      if (!errors.length && hasVal(start) && hasVal(end) && start > end) {
+        errors.push({ field: 'start_date', message: 'Start date must be on or before end date' })
+      }
+      if (errors.length) return validationError(errors)
+      const rows = db.sales
+        .filter(
+          (s) =>
+            (!hasVal(pid) || s.product_id === Number(pid)) &&
+            (!hasVal(start) || s.sale_date >= start) &&
+            (!hasVal(end) || s.sale_date <= end),
+        )
+        .sort((a, b) =>
+          a.sale_date === b.sale_date ? b.id - a.id : a.sale_date < b.sale_date ? 1 : -1,
+        )
+      return reply(200, rows.map(saleOut))
+    },
+  },
+  {
+    method: 'POST',
+    path: '/api/sales',
+    roles: WRITERS,
+    handler: ({ body }) => {
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        return validationError([{ field: 'body', message: 'Request body must be an object' }])
+      }
+      const errors = []
+      for (const key of Object.keys(body)) {
+        if (!['product_id', 'sale_date', 'quantity_sold'].includes(key)) {
+          errors.push({ field: key, message: 'Unknown field' })
+        }
+      }
+      if (!isInt(body.product_id)) {
+        errors.push({ field: 'product_id', message: 'Product is required' })
+      }
+      if (!isValidDateString(body.sale_date)) {
+        errors.push({ field: 'sale_date', message: 'Date must be a valid YYYY-MM-DD date' })
+      } else if (body.sale_date > todayString()) {
+        errors.push({ field: 'sale_date', message: 'Date cannot be in the future' })
+      }
+      if (!isInt(body.quantity_sold) || body.quantity_sold < 0) {
+        errors.push({ field: 'quantity_sold', message: 'Quantity sold must be an integer >= 0' })
+      }
+      if (errors.length) return validationError(errors)
+      const p = findProduct(body.product_id)
+      if (!p) return productNotFound()
+      if (db.sales.some((s) => s.product_id === p.id && s.sale_date === body.sale_date)) {
+        return saleExists()
+      }
+      const sale = {
+        id: db.nextSaleId++,
+        product_id: p.id,
+        sale_date: body.sale_date,
+        quantity_sold: body.quantity_sold,
+      }
+      db.sales.push(sale)
+      return reply(201, saleOut(sale))
+    },
+  },
+  {
+    method: 'POST',
+    path: '/api/sales/import',
+    roles: WRITERS,
+    // The body is the CSV text (in mock mode the client reads the uploaded file).
+    handler: ({ body }) => {
+      const text = typeof body === 'string' ? body.replace(/^﻿/, '') : ''
+      if (!text.trim()) return invalidCsv('The CSV file is empty')
+      const lines = text.split(/\r?\n/)
+      const header = lines[0].split(',').map((h) => h.trim().toLowerCase())
+      if (header.join(',') !== 'sku,date,quantity_sold') {
+        return invalidCsv('Header must be exactly: sku,date,quantity_sold')
+      }
+      const today = todayString()
+      const seen = new Set()
+      const accepted = []
+      const rejected = []
+      for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue
+        const row = i + 1
+        const cols = lines[i].split(',').map((c) => c.trim())
+        if (cols.length !== 3) {
+          rejected.push({ row, message: 'Expected 3 columns: sku,date,quantity_sold' })
+          continue
+        }
+        const [sku, date, qty] = cols
+        const product = db.products.find((p) => p.sku.toLowerCase() === sku.toLowerCase())
+        if (!product) {
+          rejected.push({ row, message: `Unknown SKU: ${sku}` })
+        } else if (!isValidDateString(date)) {
+          rejected.push({ row, message: 'Date must be in YYYY-MM-DD format' })
+        } else if (date > today) {
+          rejected.push({ row, message: 'Date cannot be in the future' })
+        } else if (!/^-?\d+$/.test(qty)) {
+          rejected.push({ row, message: 'Quantity sold must be a whole number' })
+        } else if (Number(qty) < 0) {
+          rejected.push({ row, message: 'Quantity sold cannot be negative' })
+        } else if (seen.has(`${product.id}|${date}`)) {
+          rejected.push({ row, message: 'Duplicate product and date in this file' })
+        } else if (db.sales.some((s) => s.product_id === product.id && s.sale_date === date)) {
+          rejected.push({
+            row,
+            message: 'A sales record already exists for this product and date',
+          })
+        } else {
+          seen.add(`${product.id}|${date}`)
+          accepted.push({ product_id: product.id, sale_date: date, quantity_sold: Number(qty) })
+        }
+      }
+      for (const a of accepted) db.sales.push({ id: db.nextSaleId++, ...a })
+      return reply(200, { imported: accepted.length, rejected })
     },
   },
 

@@ -25,7 +25,7 @@ function buildQuery(query) {
   return s ? `?${s}` : ''
 }
 
-export async function request(path, { method = 'GET', body, query } = {}) {
+export async function request(path, { method = 'GET', body, query, formData } = {}) {
   const token = getToken()
   let status
   let data
@@ -37,14 +37,15 @@ export async function request(path, { method = 'GET', body, query } = {}) {
   } else {
     const base = import.meta.env.VITE_API_BASE_URL || ''
     const headers = { Accept: 'application/json' }
-    if (body !== undefined) headers['Content-Type'] = 'application/json'
+    // For FormData the browser sets the multipart Content-Type (with boundary).
+    if (body !== undefined && !formData) headers['Content-Type'] = 'application/json'
     if (token) headers.Authorization = `Bearer ${token}`
     let res
     try {
       res = await fetch(`${base}${path}${buildQuery(query)}`, {
         method,
         headers,
-        body: body !== undefined ? JSON.stringify(body) : undefined,
+        body: formData ? formData : body !== undefined ? JSON.stringify(body) : undefined,
       })
     } catch {
       throw new ApiError('Network error. Is the backend running?', { status: 0 })
