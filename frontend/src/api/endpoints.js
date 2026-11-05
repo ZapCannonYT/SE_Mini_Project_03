@@ -44,3 +44,6 @@ export async function importSalesCsv(file) {
   formData.append('file', file)
   return request('/api/sales/import', { method: 'POST', body: formData, formData })
 }
+
+// Dashboard endpoint is provisional until the forecasting backend lands (see README).
+export const getDashboard = () => request('/api/dashboard')
