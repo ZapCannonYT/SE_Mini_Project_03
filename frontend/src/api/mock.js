@@ -6,6 +6,8 @@
 // Routes live in the `routes` table below. To add a new area (sales,
 // forecasts, dashboard), push more entries onto that table.
 
+import { reorderQty, classifyRisk } from '../lib/planning.js'
+
 const LATENCY_MS = 250
 const MOCK_PASSWORD = 'password123'
 const ROLES = ['admin', 'planner', 'viewer']
@@ -217,6 +219,77 @@ const saleExists = () =>
   })
 
 const invalidCsv = (message) => reply(422, { code: 'invalid_csv', message, details: [] })
+
+const round1 = (n) => Math.round(n * 10) / 10
+
+// Provisional dashboard payload: naive forecast = average daily sales of the last 28 days * 7.
+function buildDashboard() {
+  const HORIZON = 7
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const dayStr = (offset) => {
+    const d = new Date(today)
+    d.setDate(d.getDate() + offset)
+    return formatDate(d)
+  }
+  const active = db.products.filter((p) => p.is_active)
+  const activeIds = new Set(active.map((p) => p.id))
+  const recentStart = dayStr(-28)
+  const todayStr = dayStr(0)
+
+  const items = active.map((p) => {
+    const inv = db.inventory.find((i) => i.product_id === p.id)
+    const currentStock = inv ? inv.quantity : 0
+    const sold = db.sales
+      .filter((s) => s.product_id === p.id && s.sale_date >= recentStart && s.sale_date < todayStr)
+      .reduce((sum, s) => sum + s.quantity_sold, 0)
+    const forecastDemand = round1((sold / 28) * HORIZON)
+    return {
+      product_id: p.id,
+      sku: p.sku,
+      name: p.name,
+      current_stock: currentStock,
+      forecast_demand: forecastDemand,
+      safety_stock: p.safety_stock,
+      overstock_factor: p.overstock_factor,
+      reorder_qty: reorderQty(forecastDemand, p.safety_stock, currentStock),
+      risk: classifyRisk(currentStock, forecastDemand, p.overstock_factor),
+    }
+  })
+
+  const totalForecast = items.reduce((sum, i) => sum + i.forecast_demand, 0)
+  const dailyForecast = round1(totalForecast / HORIZON)
+  const actualByDate = new Map()
+  for (const s of db.sales) {
+    if (!activeIds.has(s.product_id)) continue
+    actualByDate.set(s.sale_date, (actualByDate.get(s.sale_date) || 0) + s.quantity_sold)
+  }
+
+  const trend = []
+  for (let off = -30; off <= -1; off++) {
+    const date = dayStr(off)
+    const actual = actualByDate.get(date) || 0
+    trend.push({ date, actual, forecast: off === -1 ? actual : null })
+  }
+  for (let off = 0; off < HORIZON; off++) {
+    trend.push({ date: dayStr(off), actual: null, forecast: dailyForecast })
+  }
+
+  return {
+    generated_at: new Date().toISOString(),
+    horizon_days: HORIZON,
+    totals: {
+      current_stock: items.reduce((sum, i) => sum + i.current_stock, 0),
+      forecast_demand: round1(totalForecast),
+      reorder_count: items.filter((i) => i.reorder_qty > 0).length,
+      stockout_count: items.filter((i) => i.risk === 'stockout').length,
+      overstock_count: items.filter((i) => i.risk === 'overstock').length,
+      product_count: items.length,
+    },
+    items,
+    trend,
+  }
+}
 
 const WRITERS = ['admin', 'planner']
 const ADMIN_ONLY = ['admin']
@@ -493,6 +566,9 @@ const routes = [
       return reply(200, { imported: accepted.length, rejected })
     },
   },
+
+  // Dashboard (provisional contract, see README)
+  { method: 'GET', path: '/api/dashboard', handler: () => reply(200, buildDashboard()) },
 
   // Users (admin only)
   {

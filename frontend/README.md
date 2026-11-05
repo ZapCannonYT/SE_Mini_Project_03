@@ -6,6 +6,7 @@ Web UI / Dashboard for the Demand Forecasting & Inventory Planning system (SAD 3
 
 - Vite + React (plain JavaScript)
 - react-router-dom v6
+- Chart.js via react-chartjs-2 (dashboard trend chart)
 - Vitest, Testing Library, jsdom
 
 ## Getting started
@@ -71,6 +72,10 @@ frontend/
       Layout.jsx         sidebar, header, outlet
       FormField.jsx      label, control and error text
       ProductForm.jsx    product create/edit form
+      TrendChart.jsx     Chart.js actual vs forecast line chart
+      AlertsTable.jsx    stockout/overstock alerts with filter
+    lib/
+      planning.js        reorderQty and classifyRisk (mirrors backend planning rules)
     pages/
       LoginPage.jsx
       PlaceholderPage.jsx
@@ -78,6 +83,7 @@ frontend/
       ProductsPage.jsx
       InventoryPage.jsx
       SalesPage.jsx
+      DashboardPage.jsx
     test/
       setup.js           Vitest setup (jest-dom, mock reset)
 ```
@@ -101,3 +107,24 @@ The sales backend lands in Sprint 2, so the `/api/sales` endpoints are provision
 - `POST /api/sales/import` (admin, planner) takes multipart form data with a `file` field (CSV). In mock mode the client reads the file text and sends it as the body. The header must be exactly `sku,date,quantity_sold` (case-insensitive); otherwise (or if the file is empty) 422 `{code: "invalid_csv", message}` and nothing is stored. Valid rows are stored and invalid rows (unknown SKU, bad or future date, non-integer or negative quantity, duplicate product and date in the file or in stored data) are reported. Response 200 `{imported: n, rejected: [{row, message}]}` where `row` is the 1-based line number including the header.
 
 The mock seeds 60 days of deterministic sales history for the active products, ending yesterday.
+
+## Dashboard
+
+`/dashboard` (DFIP-F-017/F-018, all roles) shows summary cards (current stock, forecast demand for the next 7 days, reorder recommendations, stockout risk, overstock risk), a Chart.js trend of actual sales plus forecast, and an alerts table of products at stockout or overstock risk with filter buttons.
+
+Planning rules (same as `backend/app/analytics/planning.py`): `reorder_qty = max(0, ceil(forecast_demand + safety_stock - current_stock))`; risk is `stockout` if stock < forecast, `overstock` if stock > overstock_factor * forecast, otherwise `none`.
+
+### Provisional dashboard API
+
+The forecast, planning and alerts backend is a Sprint 2 story, so `GET /api/dashboard` is implemented only in the mock and in `src/api/endpoints.js` (`getDashboard()`), and may change. Assumed contract (any role):
+
+```
+{
+  generated_at, horizon_days: 7,
+  totals: { current_stock, forecast_demand, reorder_count, stockout_count, overstock_count, product_count },
+  items: [{ product_id, sku, name, current_stock, forecast_demand, safety_stock, overstock_factor, reorder_qty, risk }],
+  trend: [{ date, actual, forecast }]
+}
+```
+
+`items` covers active products only. `trend` has the last 30 days of actuals (`forecast` is null except on the last actual day) followed by 7 forecast days (`actual` is null). The mock forecast is the average daily sales of the last 28 days times 7, rounded to 1 decimal.

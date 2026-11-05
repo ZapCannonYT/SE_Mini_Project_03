@@ -7,9 +7,9 @@ import NotFoundPage from './pages/NotFoundPage.jsx'
 import ProductsPage from './pages/ProductsPage.jsx'
 import InventoryPage from './pages/InventoryPage.jsx'
 import SalesPage from './pages/SalesPage.jsx'
+import DashboardPage from './pages/DashboardPage.jsx'
 
 const PAGES = [
-  ['dashboard', 'Dashboard', 'Key stock, forecast and alert indicators will appear here.'],
   ['forecasts', 'Forecasts', 'Demand forecasts per product and horizon will appear here.'],
   ['planning', 'Planning', 'Reorder and overstock planning recommendations will appear here.'],
   ['reports', 'Reports', 'Downloadable inventory and forecast reports will appear here.'],
@@ -43,6 +43,7 @@ export default function App() {
           }
         >
           <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="dashboard" element={<DashboardPage />} />
           <Route path="products" element={<ProductsPage />} />
           <Route path="inventory" element={<InventoryPage />} />
           <Route path="sales" element={<SalesPage />} />
