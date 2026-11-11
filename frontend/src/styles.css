@@ -101,3 +101,19 @@ code { background: #eef0f4; padding: 1px 5px; border-radius: 4px; }
 .login-title { margin-bottom: 4px; }
 .mock-note { margin-top: 18px; padding: 10px 12px; background: var(--amber-bg); color: var(--amber); border-radius: 6px; font-size: 0.85rem; }
 .mock-note ul { margin: 4px 0; padding-left: 18px; }
+
+/* Data screens */
+.field select[aria-invalid='true'] { border-color: var(--red); }
+.field-hint { font-size: 0.85rem; }
+.form-card, .section-card { margin-bottom: 20px; }
+.form-card h2, .section-card h2 { font-size: 1.1rem; margin: 0 0 12px; }
+.form-card { max-width: 520px; }
+.form-inline { flex-direction: row; flex-wrap: wrap; align-items: flex-start; margin-bottom: 12px; }
+.form-inline .toolbar { margin: 22px 0 0; }
+.note { margin-bottom: 12px; color: var(--muted); }
+.row-actions { margin-bottom: 0; flex-wrap: nowrap; }
+.qty-input { width: 110px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font: inherit; }
+.qty-input[aria-invalid='true'] { border-color: var(--red); }
+.csv-example { background: #eef0f4; padding: 10px 12px; border-radius: 6px; overflow-x: auto; }
+.import-result { margin-top: 16px; }
+.import-result h3 { font-size: 1rem; }

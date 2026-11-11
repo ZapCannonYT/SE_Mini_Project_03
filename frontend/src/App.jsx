@@ -4,12 +4,12 @@ import Layout from './components/Layout.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import PlaceholderPage from './pages/PlaceholderPage.jsx'
 import NotFoundPage from './pages/NotFoundPage.jsx'
+import ProductsPage from './pages/ProductsPage.jsx'
+import InventoryPage from './pages/InventoryPage.jsx'
+import SalesPage from './pages/SalesPage.jsx'
 
 const PAGES = [
   ['dashboard', 'Dashboard', 'Key stock, forecast and alert indicators will appear here.'],
-  ['products', 'Products', 'The product catalogue with create, edit and deactivate actions will appear here.'],
-  ['inventory', 'Inventory', 'Current stock levels per product and quantity updates will appear here.'],
-  ['sales', 'Sales', 'Sales history entry and import will appear here.'],
   ['forecasts', 'Forecasts', 'Demand forecasts per product and horizon will appear here.'],
   ['planning', 'Planning', 'Reorder and overstock planning recommendations will appear here.'],
   ['reports', 'Reports', 'Downloadable inventory and forecast reports will appear here.'],
@@ -43,6 +43,9 @@ export default function App() {
           }
         >
           <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="products" element={<ProductsPage />} />
+          <Route path="inventory" element={<InventoryPage />} />
+          <Route path="sales" element={<SalesPage />} />
           {PAGES.map(([path, title, desc]) => (
             <Route
               key={path}
