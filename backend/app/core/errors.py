@@ -6,6 +6,10 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 
+# Where FastAPI found the bad value; left out so "details" names just the field, e.g. "start_date".
+_LOCATIONS = {"body", "query", "path"}
+
+
 class AppError(Exception):
     """Raise from services/endpoints to return a clean JSON error."""
 
@@ -29,7 +33,7 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(RequestValidationError)
     async def _validation_error(_request: Request, exc: RequestValidationError) -> JSONResponse:
         details = [
-            {"field": ".".join(str(part) for part in err["loc"] if part != "body"), "message": err["msg"]}
+            {"field": ".".join(str(part) for part in err["loc"] if part not in _LOCATIONS), "message": err["msg"]}
             for err in exc.errors()
         ]
         return JSONResponse(
