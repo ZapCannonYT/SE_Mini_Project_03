@@ -18,11 +18,14 @@ All endpoints except login and `/health` need `Authorization: Bearer <token>` fr
 | GET | `/api/inventory` | Current stock for every active product (DFIP-F-005) | all roles | - | 200 list of `InventoryOut` |
 | GET | `/api/inventory/{product_id}` | Stock for one product | all roles | - | 200 `InventoryOut` |
 | PUT | `/api/inventory/{product_id}` | Set current stock (DFIP-F-006) | admin, planner | `InventoryUpdate` | 200 `InventoryOut` |
+| POST | `/api/sales` | Record units sold for one product on one date (DFIP-F-007) | admin, planner | `SalesCreate` | 201 `SalesOut` |
+| GET | `/api/sales` | Sales history, newest first (DFIP-F-009) | all roles | query `product_id`, `start_date`, `end_date` (all optional, dates inclusive) | 200 list of `SalesOut` |
+| POST | `/api/sales/import` | Import sales from a CSV file (DFIP-F-008) | admin, planner | multipart field `file` | 200 `ImportResult` |
 | GET | `/health` | Liveness check | anyone | - | 200 |
 
 ## Errors
 
-Product and inventory errors share one JSON shape (SAD 4.4):
+Product, inventory and sales errors share one JSON shape (SAD 4.4):
 
 ```json
 {"code": "validation_error", "message": "Some fields are missing or invalid.", "details": [{"field": "quantity", "message": "Input should be greater than or equal to 0"}]}
@@ -34,8 +37,11 @@ Product and inventory errors share one JSON shape (SAD 4.4):
 | 403 | - | Role not allowed for this endpoint |
 | 404 | `product_not_found` | No product with that id |
 | 409 | `sku_exists` | SKU already used (SKUs are case-insensitive) |
-| 409 | `product_inactive` | Changing stock of a deactivated product |
-| 422 | `validation_error` | Missing, unknown, negative or non-numeric fields; `details` lists each field |
+| 409 | `product_inactive` | Changing stock of, or adding a sale for, a deactivated product |
+| 409 | `sale_exists` | The product already has a sales record on that date |
+| 413 | `file_too_large` | CSV import over 2 MB |
+| 422 | `invalid_csv` | CSV import that is empty, not UTF-8, or whose header is not exactly `sku,date,quantity_sold`; nothing is stored |
+| 422 | `validation_error` | Missing, unknown, negative or non-numeric fields, bad or future dates, or `start_date` after `end_date`; `details` lists each field |
 
 ## Schemas
 
@@ -70,6 +76,26 @@ Any subset of `name`, `category`, `unit`, `safety_stock`, `overstock_factor` (sa
 ### InventoryOut
 
 `product_id`, `sku`, `name`, `quantity`, `updated_at`, `updated_by` (user id of the last change).
+
+### SalesCreate
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `product_id` | integer | yes | An active product |
+| `sale_date` | string | yes | `YYYY-MM-DD`, not in the future |
+| `quantity_sold` | integer | yes | Whole number >= 0 |
+
+### SalesOut
+
+`id`, `product_id`, `sku`, `name`, `sale_date`, `quantity_sold`, `created_by` (user id of whoever recorded or imported it), `created_at`.
+
+### ImportResult
+
+```json
+{"imported": 2, "rejected": [{"row": 3, "message": "Quantity sold cannot be negative"}]}
+```
+
+Valid rows are saved together in one transaction; `row` is the line number in the file (header = line 1). File format and sample files: `data/samples/README.md`.
 
 ## User Administration (DFIP-F-021)
 
