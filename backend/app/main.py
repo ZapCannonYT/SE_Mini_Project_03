@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api import auth, inventory, products, users
+from app.api import auth, inventory, products, sales, users
 
 from app.core.config import settings
 from app.core.db import init_db
@@ -26,6 +26,7 @@ register_error_handlers(app)
 app.include_router(auth.router)
 app.include_router(products.router)
 app.include_router(inventory.router)
+app.include_router(sales.router)
 app.include_router(users.router)
 
 
