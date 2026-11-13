@@ -21,6 +21,13 @@ All endpoints except login and `/health` need `Authorization: Bearer <token>` fr
 | POST | `/api/sales` | Record units sold for one product on one date (DFIP-F-007) | admin, planner | `SalesCreate` | 201 `SalesOut` |
 | GET | `/api/sales` | Sales history, newest first (DFIP-F-009) | all roles | query `product_id`, `start_date`, `end_date` (all optional, dates inclusive) | 200 list of `SalesOut` |
 | POST | `/api/sales/import` | Import sales from a CSV file (DFIP-F-008) | admin, planner | multipart field `file` | 200 `ImportResult` |
+| POST | `/api/forecasts` | Generate and store a weekly or monthly forecast (DFIP-F-010..012) | admin, planner | `{"product_id", "horizon", "unit"}` | 201 `ForecastOut` |
+| GET | `/api/forecasts` | List stored forecasts; optionally filter by product | all roles | query `product_id` | 200 list of `ForecastOut` |
+| GET | `/api/forecasts/{forecast_id}` | Retrieve one forecast and its points | all roles | - | 200 `ForecastOut` |
+| POST | `/api/planning/recommendations` | Calculate and store reorder/risk result (DFIP-F-013..016) | admin, planner | `{"forecast_id", "current_stock?", "safety_stock?", "overstock_factor?"}` | 201 `RecommendationOut` |
+| GET | `/api/planning/recommendations/{recommendation_id}` | Retrieve a recommendation and all inputs used | all roles | - | 200 `RecommendationOut` |
+| GET | `/api/planning/alerts` | List active products currently at stockout or overstock risk | all roles | - | 200 list of `PlanningAlertOut` |
+| GET | `/api/dashboard` | Dashboard totals, active-product plans and 30-day actual/7-day forecast trend (DFIP-F-017/F-018) | all roles | - | 200 `DashboardOut` |
 | GET | `/health` | Liveness check | anyone | - | 200 |
 
 ## Errors
@@ -30,6 +37,8 @@ Product, inventory and sales errors share one JSON shape (SAD 4.4):
 ```json
 {"code": "validation_error", "message": "Some fields are missing or invalid.", "details": [{"field": "quantity", "message": "Input should be greater than or equal to 0"}]}
 ```
+
+Forecast horizon errors use 400 `invalid_forecast_request`; history shorter than 8 weekly or monthly periods uses 422 `insufficient_history`. Missing forecast or recommendation ids return 404 `forecast_not_found` or `recommendation_not_found`.
 
 | Status | `code` | When |
 |---|---|---|
@@ -96,6 +105,18 @@ Any subset of `name`, `category`, `unit`, `safety_stock`, `overstock_factor` (sa
 ```
 
 Valid rows are saved together in one transaction; `row` is the line number in the file (header = line 1). File format and sample files: `data/samples/README.md`.
+
+### ForecastCreate and ForecastOut
+
+`ForecastCreate` requires a positive `product_id`, a supported `horizon`, and `unit` (`week` or `month`). Weekly horizons are 1–12 periods and monthly horizons are 1–6. Forecasts use historical sales records for the selected active product; at least 8 periods are required. `ForecastOut` includes stored model metadata and ordered points (`period_start`, `predicted_qty`).
+
+### RecommendationCreate and RecommendationOut
+
+`RecommendationCreate` requires a `forecast_id`. `current_stock`, `safety_stock`, and `overstock_factor` are optional overrides; omitted values come from current inventory and product planning settings. `RecommendationOut` returns the complete input snapshot (`current_stock`, `forecast_demand`, `safety_stock`, `overstock_factor`), `reorder_qty`, `risk`, and associated IDs. Alerts use the latest forecast for each active product and current inventory/settings, and include only non-`none` risks.
+
+### DashboardOut
+
+The authenticated dashboard returns `generated_at`, `horizon_days` (7), totals, active-product `items`, and a `trend` with 30 past daily actuals followed by 7 future daily forecasts. The weekly forecasting engine supplies each product's seven-day demand when at least 8 weeks of history are available; shorter histories use the frontend's trailing-28-day average, and no sales history yields a zero forecast.
 
 ## User Administration (DFIP-F-021)
 

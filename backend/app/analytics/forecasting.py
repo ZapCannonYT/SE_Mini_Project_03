@@ -8,13 +8,17 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import numpy as np
 import pandas as pd
 from statsmodels.tsa.holtwinters import ExponentialSmoothing, SimpleExpSmoothing
 
-from app.analytics.preprocessing import MIN_PERIODS, VALID_UNITS, InsufficientHistoryError
+from app.analytics.preprocessing import (
+    MIN_PERIODS,
+    VALID_UNITS,
+    InsufficientHistoryError,
+)
 
 MODEL_VERSION = "1.0"
 HOLT_WINTERS = "Holt-Winters exponential smoothing"
@@ -109,5 +113,5 @@ def forecast(series: pd.Series, horizon: int, unit: str) -> ForecastResult:
 
     return ForecastResult(
         points=points, model_name=model_name, model_version=MODEL_VERSION,
-        generated_at=datetime.now(timezone.utc), unit=unit, horizon=horizon,
+        generated_at=datetime.now(UTC), unit=unit, horizon=horizon,
     )
