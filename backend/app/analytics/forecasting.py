@@ -8,13 +8,17 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import numpy as np
 import pandas as pd
 from statsmodels.tsa.holtwinters import ExponentialSmoothing, SimpleExpSmoothing
 
-from app.analytics.preprocessing import MIN_PERIODS, VALID_UNITS, InsufficientHistoryError
+from app.analytics.preprocessing import (
+    MIN_PERIODS,
+    VALID_UNITS,
+    InsufficientHistoryError,
+)
 
 MODEL_VERSION = "1.0"
 HOLT_WINTERS = "Holt-Winters exponential smoothing"
@@ -76,12 +80,17 @@ def _fit_simple(values: pd.Series, horizon: int) -> np.ndarray:
     return pred
 
 
-def forecast(series: pd.Series, horizon: int, unit: str) -> ForecastResult:
+def forecast(
+    series: pd.Series,
+    horizon: int,
+    unit: str,
+    min_periods: int = MIN_PERIODS,
+) -> ForecastResult:
     """Forecast `horizon` future periods from a weekly/monthly demand series."""
     validate_horizon(horizon, unit)
-    if len(series) < MIN_PERIODS:
+    if len(series) < min_periods:
         raise InsufficientHistoryError(
-            f"Need at least {MIN_PERIODS} {unit}s of history, got {len(series)}."
+            f"Need at least {min_periods} {unit}s of history, got {len(series)}."
         )
 
     values = series.astype(float).copy()
@@ -109,5 +118,5 @@ def forecast(series: pd.Series, horizon: int, unit: str) -> ForecastResult:
 
     return ForecastResult(
         points=points, model_name=model_name, model_version=MODEL_VERSION,
-        generated_at=datetime.now(timezone.utc), unit=unit, horizon=horizon,
+        generated_at=datetime.now(UTC), unit=unit, horizon=horizon,
     )

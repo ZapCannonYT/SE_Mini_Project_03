@@ -1,6 +1,5 @@
 """Product/SKU management API (DFIP-F-004, TC-PROD-01)."""
 import pytest
-
 from app.models import Role
 
 NEW_PRODUCT = {"sku": "SKU-100", "name": "Steel bolts", "category": "Hardware", "safety_stock": 20}
@@ -51,6 +50,7 @@ def test_duplicate_sku_is_rejected_case_insensitively(client, admin):
         ("safety_stock", -1),
         ("safety_stock", 2.5),
         ("overstock_factor", 0),
+        ("overstock_factor", 0.5),
         ("initial_quantity", -10),
     ],
 )

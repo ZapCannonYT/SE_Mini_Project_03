@@ -8,7 +8,7 @@ Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max
 Category = Annotated[str, StringConstraints(strip_whitespace=True, max_length=100)]
 Unit = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=20)]
 NonNegativeInt = Annotated[int, Field(strict=True, ge=0)]
-OverstockFactor = Annotated[float, Field(gt=0, le=10)]
+OverstockFactor = Annotated[float, Field(ge=1, le=10)]
 
 
 class ProductCreate(BaseModel):
