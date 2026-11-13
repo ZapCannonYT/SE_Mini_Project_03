@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 
-from app.models import SalesRecord
+from app.models import SalesRecord, Setting
 
 
 def seed_history(db, product_id: int, days: int = 70):
@@ -55,6 +55,24 @@ def test_forecast_reports_insufficient_history(client, auth_headers):
         "/api/forecasts", json={"product_id": product_id, "horizon": 4, "unit": "week"},
         headers=auth_headers(Role.PLANNER),
     )
+    assert response.status_code == 422
+    assert response.json()["code"] == "insufficient_history"
+
+
+def test_forecast_uses_saved_minimum_history_setting(client, db, auth_headers):
+    from app.models import Role
+
+    product_id = make_product(client, auth_headers(Role.ADMIN))
+    seed_history(db, product_id)
+    db.add(Setting(key="minimum_history_periods", value="11"))
+    db.commit()
+
+    response = client.post(
+        "/api/forecasts",
+        json={"product_id": product_id, "horizon": 4, "unit": "week"},
+        headers=auth_headers(Role.PLANNER),
+    )
+
     assert response.status_code == 422
     assert response.json()["code"] == "insufficient_history"
 

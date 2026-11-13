@@ -63,7 +63,7 @@ Forecast horizon errors use 400 `invalid_forecast_request`; history shorter than
 | `category` | string or null | no | max 100 |
 | `unit` | string | no | default `unit` |
 | `safety_stock` | integer | no | >= 0, default 0 |
-| `overstock_factor` | number | no | > 0 and <= 10, default 1.5 |
+| `overstock_factor` | number | no | >= 1 and <= 10, default 1.5 |
 | `initial_quantity` | integer | no | >= 0, default 0; starting stock |
 
 Unknown fields are rejected with 422.
@@ -108,15 +108,15 @@ Valid rows are saved together in one transaction; `row` is the line number in th
 
 ### ForecastCreate and ForecastOut
 
-`ForecastCreate` requires a positive `product_id`, a supported `horizon`, and `unit` (`week` or `month`). Weekly horizons are 1–12 periods and monthly horizons are 1–6. Forecasts use historical sales records for the selected active product; at least 8 periods are required. `ForecastOut` includes stored model metadata and ordered points (`period_start`, `predicted_qty`).
+`ForecastCreate` requires a positive `product_id`, a supported `horizon`, and `unit` (`week` or `month`). Weekly horizons are 1–12 periods and monthly horizons are 1–6. Forecasts use historical sales records for the selected active product and the saved `minimum_history_periods` setting (default 8); insufficient history returns 422. `ForecastOut` includes stored model metadata and ordered points (`period_start`, `predicted_qty`).
 
 ### RecommendationCreate and RecommendationOut
 
-`RecommendationCreate` requires a `forecast_id`. `current_stock`, `safety_stock`, and `overstock_factor` are optional overrides; omitted values come from current inventory and product planning settings. `RecommendationOut` returns the complete input snapshot (`current_stock`, `forecast_demand`, `safety_stock`, `overstock_factor`), `reorder_qty`, `risk`, and associated IDs. Alerts use the latest forecast for each active product and current inventory/settings, and include only non-`none` risks.
+`RecommendationCreate` requires a `forecast_id`. `current_stock`, `safety_stock`, and `overstock_factor` are optional overrides. For safety stock and overstock factor, explicit request values take precedence over the saved global defaults (`default_safety_stock`, `default_overstock_factor`); when no global value exists, the product values are used. `RecommendationOut` returns the complete input snapshot (`current_stock`, `forecast_demand`, `safety_stock`, `overstock_factor`), `reorder_qty`, `risk`, and associated IDs. Alerts use the saved global defaults when available, otherwise each product's values, and include only non-`none` risks.
 
 ### DashboardOut
 
-The authenticated dashboard returns `generated_at`, `horizon_days` (7), totals, active-product `items`, and a `trend` with 30 past daily actuals followed by 7 future daily forecasts. The weekly forecasting engine supplies each product's seven-day demand when at least 8 weeks of history are available; shorter histories use the frontend's trailing-28-day average, and no sales history yields a zero forecast.
+The authenticated dashboard returns `generated_at`, `horizon_days` (7), totals, active-product `items`, and a `trend` with 30 past daily actuals followed by 7 future daily forecasts. The weekly forecasting engine uses the saved `minimum_history_periods` setting (default 8); shorter histories use the frontend's trailing-28-day average, and no sales history yields a zero forecast. Planning values follow the saved global defaults when present and otherwise use product values.
 
 ## User Administration (DFIP-F-021)
 

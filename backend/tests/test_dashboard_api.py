@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 
-from app.models import Role, SalesRecord
+from app.models import Role, SalesRecord, Setting
 
 
 def create_product(client, headers, *, sku="DASH-1", stock=4):
@@ -92,6 +92,27 @@ def test_dashboard_product_without_sales_uses_zero_forecast(client, auth_headers
     assert data["totals"]["forecast_demand"] == 0
     assert data["items"][0]["forecast_demand"] == 0
     assert data["items"][0]["risk"] == "none"
+
+
+def test_dashboard_uses_configured_minimum_history_for_sparse_sales(client, db, auth_headers):
+    product_id = create_product(client, auth_headers(Role.ADMIN), stock=0)
+    end = date.today() - timedelta(days=1)
+    start = end - timedelta(days=69)
+    db.add_all([
+        SalesRecord(
+            product_id=product_id,
+            sale_date=start + timedelta(days=offset),
+            quantity_sold=10 if offset < 42 else 0,
+        )
+        for offset in range(70)
+    ])
+    db.add(Setting(key="minimum_history_periods", value="11"))
+    db.commit()
+
+    response = client.get("/api/dashboard", headers=auth_headers(Role.VIEWER))
+
+    assert response.status_code == 200
+    assert response.json()["items"][0]["forecast_demand"] == 0
 
 
 def test_dashboard_requires_authentication(client):

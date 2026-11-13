@@ -80,12 +80,17 @@ def _fit_simple(values: pd.Series, horizon: int) -> np.ndarray:
     return pred
 
 
-def forecast(series: pd.Series, horizon: int, unit: str) -> ForecastResult:
+def forecast(
+    series: pd.Series,
+    horizon: int,
+    unit: str,
+    min_periods: int = MIN_PERIODS,
+) -> ForecastResult:
     """Forecast `horizon` future periods from a weekly/monthly demand series."""
     validate_horizon(horizon, unit)
-    if len(series) < MIN_PERIODS:
+    if len(series) < min_periods:
         raise InsufficientHistoryError(
-            f"Need at least {MIN_PERIODS} {unit}s of history, got {len(series)}."
+            f"Need at least {min_periods} {unit}s of history, got {len(series)}."
         )
 
     values = series.astype(float).copy()

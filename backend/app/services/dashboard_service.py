@@ -10,13 +10,14 @@ from app.analytics.preprocessing import InsufficientHistoryError, build_series
 from app.models import Product, SalesRecord
 from app.schemas.dashboard import DashboardOut
 from app.services import inventory_service, sales_service
+from app.services.planning_settings import PlanningSettings, get_planning_settings
 
 HORIZON_DAYS = 7
 ACTUAL_DAYS = 30
 FALLBACK_DAYS = 28
 
 
-def _forecast_demand(history: list[dict], today: date) -> float:
+def _forecast_demand(history: list[dict], today: date, min_periods: int) -> float:
     """Return a one-week forecast, falling back to the dashboard's 28-day average.
 
     The forecasting engine needs at least eight weekly periods. Sparse histories
@@ -26,35 +27,46 @@ def _forecast_demand(history: list[dict], today: date) -> float:
     if not history:
         return 0.0
     try:
-        series = build_series(history, unit="week")
+        series = build_series(history, unit="week", min_periods=min_periods)
     except InsufficientHistoryError:
         cutoff = today - timedelta(days=FALLBACK_DAYS)
         recent_sales = sum(
             row["quantity_sold"] for row in history if cutoff <= row["sale_date"] < today
         )
         return round(recent_sales / FALLBACK_DAYS * HORIZON_DAYS, 1)
-    result = forecast(series, horizon=1, unit="week")
+    result = forecast(series, horizon=1, unit="week", min_periods=min_periods)
     return round(result.points[0].predicted_qty, 1)
 
 
 def build_dashboard(db: Session) -> DashboardOut:
     products: list[Product] = inventory_service.list_stock(db)
     today = date.today()
+    settings: PlanningSettings = get_planning_settings(db)
     items = []
 
     for product in products:
         history = sales_service.get_sales_history(db, product.id)
-        forecast_demand = _forecast_demand(history, today)
+        forecast_demand = _forecast_demand(history, today, settings.minimum_history_periods)
         current_stock = product.inventory.quantity if product.inventory else 0
-        result = plan(current_stock, forecast_demand, product.safety_stock, product.overstock_factor)
+        safety_stock = (
+            settings.default_safety_stock
+            if settings.default_safety_stock is not None
+            else product.safety_stock
+        )
+        overstock_factor = (
+            settings.default_overstock_factor
+            if settings.default_overstock_factor is not None
+            else product.overstock_factor
+        )
+        result = plan(current_stock, forecast_demand, safety_stock, overstock_factor)
         items.append({
             "product_id": product.id,
             "sku": product.sku,
             "name": product.name,
             "current_stock": current_stock,
             "forecast_demand": forecast_demand,
-            "safety_stock": product.safety_stock,
-            "overstock_factor": product.overstock_factor,
+            "safety_stock": safety_stock,
+            "overstock_factor": overstock_factor,
             "reorder_qty": result.reorder_qty,
             "risk": result.risk.value,
         })

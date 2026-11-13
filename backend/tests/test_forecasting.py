@@ -3,7 +3,6 @@ import math
 from datetime import date, datetime, timedelta
 
 import pytest
-
 from app.analytics.forecasting import (
     HOLT_WINTERS,
     MODEL_VERSION,
@@ -76,6 +75,12 @@ def test_fewer_than_8_periods_raises():  # TC-FCST-02
     short = flat_series(8).iloc[:5]
     with pytest.raises(InsufficientHistoryError):
         forecast(short, horizon=4, unit="week")
+
+
+def test_configured_minimum_history_is_used_by_forecast():
+    short = flat_series(8).iloc[:10]
+    with pytest.raises(InsufficientHistoryError):
+        forecast(short, horizon=1, unit="week", min_periods=11)
 
 
 @pytest.mark.parametrize(

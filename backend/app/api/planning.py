@@ -20,6 +20,7 @@ from app.schemas.planning import (
     RecommendationCreate,
     RecommendationOut,
 )
+from app.services.planning_settings import get_planning_settings
 
 router = APIRouter(prefix="/api/planning", tags=["Planning"])
 any_user = require_role(Role.ADMIN.value, Role.PLANNER.value, Role.VIEWER.value)
@@ -52,9 +53,22 @@ def create_recommendation(
     if product is None or not product.is_active:
         raise AppError(404, "product_not_found", f"Active product {forecast_record.product_id} does not exist.")
     inventory = db.get(Inventory, product.id)
+    settings = get_planning_settings(db)
     current_stock = data.current_stock if data.current_stock is not None else (inventory.quantity if inventory else 0)
-    safety_stock = data.safety_stock if data.safety_stock is not None else product.safety_stock
-    overstock_factor = data.overstock_factor if data.overstock_factor is not None else product.overstock_factor
+    safety_stock = (
+        data.safety_stock
+        if data.safety_stock is not None
+        else settings.default_safety_stock
+        if settings.default_safety_stock is not None
+        else product.safety_stock
+    )
+    overstock_factor = (
+        data.overstock_factor
+        if data.overstock_factor is not None
+        else settings.default_overstock_factor
+        if settings.default_overstock_factor is not None
+        else product.overstock_factor
+    )
     forecast_demand = demand_from_forecast(forecast_record.points)
     result = plan(current_stock, forecast_demand, safety_stock, overstock_factor)
     item = Recommendation(
@@ -85,6 +99,7 @@ def get_recommendation(
 
 @router.get("/alerts", response_model=list[PlanningAlertOut])
 def list_alerts(db: Session = Depends(get_db), _user: User = Depends(any_user)):
+    settings = get_planning_settings(db)
     products = db.scalars(select(Product).where(Product.is_active.is_(True)).order_by(Product.sku)).all()
     alerts = []
     for product in products:
@@ -97,7 +112,17 @@ def list_alerts(db: Session = Depends(get_db), _user: User = Depends(any_user)):
         inventory = db.get(Inventory, product.id)
         current_stock = inventory.quantity if inventory else 0
         forecast_demand = demand_from_forecast(forecast_record.points)
-        result = plan(current_stock, forecast_demand, product.safety_stock, product.overstock_factor)
+        safety_stock = (
+            settings.default_safety_stock
+            if settings.default_safety_stock is not None
+            else product.safety_stock
+        )
+        overstock_factor = (
+            settings.default_overstock_factor
+            if settings.default_overstock_factor is not None
+            else product.overstock_factor
+        )
+        result = plan(current_stock, forecast_demand, safety_stock, overstock_factor)
         if result.risk.value == "none":
             continue
         alerts.append(PlanningAlertOut(
@@ -107,8 +132,8 @@ def list_alerts(db: Session = Depends(get_db), _user: User = Depends(any_user)):
             forecast_id=forecast_record.id,
             current_stock=current_stock,
             forecast_demand=forecast_demand,
-            safety_stock=product.safety_stock,
-            overstock_factor=product.overstock_factor,
+            safety_stock=safety_stock,
+            overstock_factor=overstock_factor,
             reorder_qty=result.reorder_qty,
             risk=result.risk.value,
         ))

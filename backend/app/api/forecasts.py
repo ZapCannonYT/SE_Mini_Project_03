@@ -17,6 +17,7 @@ from app.models import (
     User,
 )
 from app.schemas.forecast import ForecastCreate, ForecastOut
+from app.services.planning_settings import get_planning_settings
 
 router = APIRouter(prefix="/api/forecasts", tags=["Forecasts"])
 any_user = require_role(Role.ADMIN.value, Role.PLANNER.value, Role.VIEWER.value)
@@ -50,17 +51,19 @@ def create_forecast(data: ForecastCreate, db: Session = Depends(get_db), user: U
     rows = db.scalars(
         select(SalesRecord).where(SalesRecord.product_id == product.id).order_by(SalesRecord.sale_date)
     ).all()
+    minimum_history = get_planning_settings(db).minimum_history_periods
     try:
         series = build_series(
             [{"sale_date": row.sale_date, "quantity_sold": row.quantity_sold} for row in rows],
             unit=data.unit,
+            min_periods=minimum_history,
         )
     except InsufficientHistoryError as exc:
         raise AppError(422, "insufficient_history", str(exc)) from None
     except ValueError as exc:
         raise AppError(400, "invalid_forecast_request", str(exc)) from None
 
-    result = forecast(series, data.horizon, data.unit)
+    result = forecast(series, data.horizon, data.unit, min_periods=minimum_history)
     record = Forecast(
         product_id=product.id,
         horizon=data.horizon,
