@@ -1,3 +1,4 @@
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
@@ -10,6 +11,7 @@ from app.core.security import (
     verify_password,
 )
 from app.models.user import User
+from app.services.audit_service import log_action
 
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
@@ -33,12 +35,34 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == data.email).first()
 
     if not user or not verify_password(data.password, user.password_hash):
+        log_action(
+            db,
+            action="login",
+            result="failure",
+            actor_id=user.id if user else None,
+            entity="user",
+            entity_id=str(user.id) if user else None,
+            details="Invalid credentials",
+        )
+        db.commit()
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
 
     if not user.is_active:
+        log_action(
+            db,
+            action="login",
+            result="failure",
+            actor_id=user.id,
+            entity="user",
+            entity_id=str(user.id),
+            details="Inactive account",
+        )
+        db.commit()
+
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User account is inactive",
@@ -48,6 +72,17 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
         subject=str(user.id),
         role=user.role.value,
     )
+
+    log_action(
+        db,
+        action="login",
+        result="success",
+        actor_id=user.id,
+        entity="user",
+        entity_id=str(user.id),
+        details="Login successful",
+    )
+    db.commit()
 
     return LoginResponse(
         access_token=token,

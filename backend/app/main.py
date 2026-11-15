@@ -5,6 +5,7 @@ from fastapi import FastAPI
 
 from app.api import (
     auth,
+    audit,
     dashboard,
     forecasts,
     inventory,
@@ -13,6 +14,7 @@ from app.api import (
     sales,
     users,
 )
+
 from app.api import settings as settings_api
 
 from app.core.config import settings
@@ -35,6 +37,7 @@ app = FastAPI(
 register_error_handlers(app)
 
 app.include_router(auth.router)
+app.include_router(audit.router)
 app.include_router(products.router)
 app.include_router(inventory.router)
 app.include_router(sales.router)
