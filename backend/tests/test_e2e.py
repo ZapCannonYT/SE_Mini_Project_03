@@ -1,7 +1,9 @@
-"""End-to-end flow (STP system testing): login -> products -> import sales -> view history.
+"""End-to-end flow (STP system testing): login -> products -> import sales -> forecast -> plan -> dashboard.
 
-Forecast, plan and report steps are added once #33 (forecast, planning and alerts API) and #38 (reports) merge.
+The report export step is added when #38 (reports) merges.
 """
+import math
+from datetime import date, timedelta
 from pathlib import Path
 
 from app.core.config import settings
@@ -75,3 +77,66 @@ def test_roles_see_only_what_they_may_change(client, auth_headers):  # E2E flow,
             "users": client.get("/api/users", headers=h).status_code,
         }
         assert actual == codes, role
+
+
+def test_imported_history_flows_into_forecast_plan_alerts_and_dashboard(client):  # E2E flow (#33)
+    admin = login(client, settings.admin_email, "Admin@123")
+    for sku, stock in (("SKU-LOW", 5), ("SKU-HIGH", 100_000)):
+        product = {"sku": sku, "name": f"Product {sku}", "safety_stock": 10, "initial_quantity": stock}
+        assert client.post("/api/products", json=product, headers=admin).status_code == 201
+    products = {p["sku"]: p["id"] for p in client.get("/api/products", headers=admin).json()}
+
+    # 1. Import 12 weeks of daily history (more than the 8 periods the forecaster needs).
+    today = date.today()
+    rows = ["sku,date,quantity_sold"]
+    for days_ago in range(1, 85):
+        day = (today - timedelta(days=days_ago)).isoformat()
+        rows += [f"SKU-LOW,{day},{10 + days_ago % 3}", f"SKU-HIGH,{day},{20 + days_ago % 5}"]
+    csv = ("\n".join(rows) + "\n").encode()
+    imported = client.post("/api/sales/import", files={"file": ("history.csv", csv, "text/csv")}, headers=admin)
+    assert imported.json() == {"imported": 168, "rejected": []}
+
+    # 2. Forecast 4 weeks ahead for each product.
+    forecasts = {}
+    for sku, product_id in products.items():
+        response = client.post(
+            "/api/forecasts", json={"product_id": product_id, "horizon": 4, "unit": "week"}, headers=admin
+        )
+        assert response.status_code == 201, response.text
+        forecast = response.json()
+        assert len(forecast["points"]) == 4
+        assert all(point["predicted_qty"] >= 0 for point in forecast["points"])
+        forecasts[sku] = forecast["id"]
+
+    # 3. Plan: reorder quantity and risk follow the SRS rule for the stored inputs.
+    plans = {}
+    for sku, forecast_id in forecasts.items():
+        response = client.post("/api/planning/recommendations", json={"forecast_id": forecast_id}, headers=admin)
+        assert response.status_code == 201, response.text
+        plan = response.json()
+        assert plan["reorder_qty"] == max(
+            0, math.ceil(plan["forecast_demand"] + plan["safety_stock"] - plan["current_stock"])
+        )
+        plans[sku] = plan
+    assert plans["SKU-LOW"]["risk"] == "stockout" and plans["SKU-LOW"]["reorder_qty"] > 0
+    assert plans["SKU-HIGH"]["risk"] == "overstock" and plans["SKU-HIGH"]["reorder_qty"] == 0
+
+    # 4. A viewer sees both products at risk in the alerts and on the dashboard.
+    viewer = {"name": "Val", "email": "val@example.com", "password": "Passw0rd!", "role": "viewer"}
+    assert client.post("/api/users", json=viewer, headers=admin).status_code == 201
+    viewer_headers = login(client, "val@example.com", "Passw0rd!")
+    alerts = {a["sku"]: a["risk"] for a in client.get("/api/planning/alerts", headers=viewer_headers).json()}
+    assert alerts == {"SKU-LOW": "stockout", "SKU-HIGH": "overstock"}
+    dashboard = client.get("/api/dashboard", headers=viewer_headers).json()
+    assert dashboard["totals"]["product_count"] == 2
+    assert dashboard["totals"]["stockout_count"] == 1
+    assert dashboard["totals"]["overstock_count"] == 1
+    assert any(point["actual"] is not None for point in dashboard["trend"])
+
+    # 5. An admin change to the planning settings (#30) is used by the next plan.
+    assert client.patch("/api/settings", json={"default_safety_stock": 500}, headers=admin).status_code == 200
+    replanned = client.post(
+        "/api/planning/recommendations", json={"forecast_id": forecasts["SKU-LOW"]}, headers=admin
+    ).json()
+    assert replanned["safety_stock"] == 500
+    assert replanned["reorder_qty"] > plans["SKU-LOW"]["reorder_qty"]
