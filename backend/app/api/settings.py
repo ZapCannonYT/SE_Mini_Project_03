@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -25,6 +24,6 @@ def get_settings(
 def update_settings(
     data: SettingsUpdate,
     db: Session = Depends(get_db),
-    _admin: User = Depends(admin_only),
+    admin: User = Depends(admin_only),
 ):
-    return settings_service.update_settings(db, data)
+    return settings_service.update_settings(db, data, admin)

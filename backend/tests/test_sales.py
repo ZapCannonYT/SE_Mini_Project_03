@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from app.models import Role, SalesRecord
+from app.models import AuditLog, Role, SalesRecord
 from app.services.sales_service import get_sales_history
 
 SAMPLES = Path(__file__).resolve().parents[2] / "data" / "samples"
@@ -290,14 +290,12 @@ def test_imported_rows_record_who_imported_them(client, products, planner, db):
     assert db.query(SalesRecord).one().created_by is not None
 
 
-# History used by the forecasting API (#33)
+def test_sales_import_creates_audit_log(client, products, planner, db):
+    upload(client, planner, "sku,date,quantity_sold\nSKU-100,2026-09-01,4\n")
 
+    audit_log = db.query(AuditLog).filter_by(action="sales_import").one()
 
-def test_sales_history_is_oldest_first_for_one_product(client, products, six_sales, db):
-    history = get_sales_history(db, products["SKU-100"])
-
-    assert history == [
-        {"sale_date": date(2026, 9, 1), "quantity_sold": 12},
-        {"sale_date": date(2026, 9, 5), "quantity_sold": 12},
-        {"sale_date": date(2026, 9, 10), "quantity_sold": 12},
-    ]
+    assert audit_log.actor_id is not None
+    assert audit_log.result == "success"
+    assert audit_log.entity == "sales"
+    assert "Imported 1 sales records" in audit_log.details

@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
 from app.models import Inventory, Product, User
+from app.services.audit_service import log_action
 from app.schemas.product import ProductCreate, ProductUpdate
 
 # Fields that may be omitted in an update but never set to null.
@@ -25,27 +26,51 @@ def get_product(db: Session, product_id: int) -> Product:
 
 
 def create_product(db: Session, data: ProductCreate, actor: User) -> Product:
-    duplicate = db.scalar(select(Product.id).where(func.lower(Product.sku) == data.sku.lower()))
+    duplicate = db.scalar(
+        select(Product.id).where(func.lower(Product.sku) == data.sku.lower())
+    )
     if duplicate is not None:
         raise AppError(409, "sku_exists", f"A product with SKU '{data.sku}' already exists.")
 
     product = Product(**data.model_dump(exclude={"initial_quantity"}))
     product.inventory = Inventory(quantity=data.initial_quantity, updated_by=actor.id)
     db.add(product)
+
     try:
+        db.flush()
+
+        log_action(
+            db,
+            action="product_create",
+            result="success",
+            actor_id=actor.id,
+            entity="product",
+            entity_id=str(product.id),
+            details=f"Product created: SKU {product.sku}",
+        )
+
         db.commit()
     except IntegrityError:
         db.rollback()
         raise AppError(409, "sku_exists", f"A product with SKU '{data.sku}' already exists.") from None
+
     db.refresh(product)
     return product
 
-
-def update_product(db: Session, product_id: int, data: ProductUpdate) -> Product:
+def update_product(
+    db: Session,
+    product_id: int,
+    data: ProductUpdate,
+    actor: User,
+) -> Product:
     product = get_product(db, product_id)
     changes = data.model_dump(exclude_unset=True)
 
-    empty = [field for field in _REQUIRED_ON_UPDATE if field in changes and changes[field] is None]
+    empty = [
+        field
+        for field in _REQUIRED_ON_UPDATE
+        if field in changes and changes[field] is None
+    ]
     if empty:
         raise AppError(
             422,
@@ -54,17 +79,48 @@ def update_product(db: Session, product_id: int, data: ProductUpdate) -> Product
             [{"field": field, "message": "Cannot be empty"} for field in empty],
         )
 
+    changed_fields = list(changes.keys())
+
     for field, value in changes.items():
         setattr(product, field, value)
-    db.commit()
-    db.refresh(product)
-    return product
 
+    if changed_fields:
+        log_action(
+            db,
+            action="product_update",
+            result="success",
+            actor_id=actor.id,
+            entity="product",
+            entity_id=str(product.id),
+            details=f"Updated product fields: {', '.join(changed_fields)}",
+        )
 
-def deactivate_product(db: Session, product_id: int) -> Product:
-    product = get_product(db, product_id)
-    if product.is_active:
-        product.is_active = False
         db.commit()
         db.refresh(product)
+
+    return product
+
+def deactivate_product(
+    db: Session,
+    product_id: int,
+    actor: User,
+) -> Product:
+    product = get_product(db, product_id)
+
+    if product.is_active:
+        product.is_active = False
+
+        log_action(
+            db,
+            action="product_deactivation",
+            result="success",
+            actor_id=actor.id,
+            entity="product",
+            entity_id=str(product.id),
+            details=f"Product deactivated: SKU {product.sku}",
+        )
+
+        db.commit()
+        db.refresh(product)
+
     return product

@@ -50,13 +50,19 @@ def get_product(product_id: int, db: Session = Depends(get_db), _user: User = De
 
 @router.put("/{product_id}", response_model=ProductOut)
 def update_product(
-    product_id: int, data: ProductUpdate, db: Session = Depends(get_db), _user: User = Depends(admin_only)
+    product_id: int,
+    data: ProductUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(admin_only),
 ):
     """Update product details; only the fields sent are changed. Admin only."""
-    return to_out(product_service.update_product(db, product_id, data))
-
+    return to_out(product_service.update_product(db, product_id, data, user))
 
 @router.patch("/{product_id}/deactivate", response_model=ProductOut)
-def deactivate_product(product_id: int, db: Session = Depends(get_db), _user: User = Depends(admin_only)):
+def deactivate_product(
+    product_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(admin_only),
+):
     """Hide a product from normal lists and planning without deleting its history. Admin only."""
-    return to_out(product_service.deactivate_product(db, product_id))
+    return to_out(product_service.deactivate_product(db, product_id, user))

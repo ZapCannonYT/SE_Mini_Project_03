@@ -151,3 +151,75 @@ Passwords and password hashes are never returned.
 - Admins cannot deactivate their own account.
 - Role changes apply on the next request.
 - Deactivated users cannot access protected endpoints.
+## Audit Logs (DFIP-F-022)
+
+All audit log endpoints require an admin Bearer token.
+
+| Method | Path | Purpose | Who | Request | Success |
+|---|---|---|---|---|---|
+| GET | `/api/audit` | Retrieve audit logs with optional filters | admin | Query parameters: `actor_id`, `action`, `start_date`, `end_date` | 200 list of `AuditLogOut` |
+
+### Audit Log Filters
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `actor_id` | integer | no | Filter logs by the user who performed the action |
+| `action` | string | no | Filter by action type, such as `login` or `product_update` |
+| `start_date` | date | no | Include logs from this date |
+| `end_date` | date | no | Include logs up to and including this date |
+
+### AuditLogOut
+
+`id`, `actor_id`, `action`, `entity`, `entity_id`, `result`, `details`, `timestamp`.
+
+### Audited Actions
+
+- Successful and failed login attempts.
+- Product creation, updates and deactivation.
+- Inventory quantity updates.
+- Sales CSV imports.
+- User role changes and deactivation.
+- Settings updates.
+
+### Security Rules
+
+- Only administrators can retrieve audit logs.
+- Passwords and authentication tokens are never stored in audit logs.
+- Logs are returned with the newest entries first.
+- Invalid date ranges return HTTP 400.
+## Audit Logs (DFIP-F-022)
+
+All audit log endpoints require an admin Bearer token.
+
+| Method | Path | Purpose | Who | Request | Success |
+|---|---|---|---|---|---|
+| GET | `/api/audit` | Retrieve audit logs with optional filters | admin | Query parameters: `actor_id`, `action`, `start_date`, `end_date` | 200 list of `AuditLogOut` |
+
+### Audit Log Filters
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `actor_id` | integer | no | Filter logs by the user who performed the action |
+| `action` | string | no | Filter by action type, such as `login` or `product_update` |
+| `start_date` | date | no | Include logs from this date |
+| `end_date` | date | no | Include logs up to and including this date |
+
+### AuditLogOut
+
+`id`, `actor_id`, `action`, `entity`, `entity_id`, `result`, `details`, `timestamp`.
+
+### Audited Actions
+
+- Successful and failed login attempts.
+- Product creation, updates and deactivation.
+- Inventory quantity updates.
+- Sales CSV imports.
+- User role changes and deactivation.
+- Settings updates.
+
+### Security Rules
+
+- Only administrators can retrieve audit logs.
+- Passwords and authentication tokens are never stored in audit logs.
+- Logs are returned with the newest entries first.
+- Invalid date ranges return HTTP 400.

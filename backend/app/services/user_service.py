@@ -7,6 +7,8 @@ from app.core.errors import AppError
 from app.core.security import hash_password
 from app.models import Role, User
 from app.schemas.user import UserCreate, UserRoleUpdate
+from app.services.audit_service import log_action
+from app.services.audit_service import log_action
 
 
 def list_users(db: Session) -> list[User]:
@@ -60,9 +62,25 @@ def update_user_role(
     if user.id == actor.id and user.role.value != data.role:
         raise AppError(400, "self_role_change", "You cannot change your own role.")
 
-    user.role = Role(data.role)
-    db.commit()
-    db.refresh(user)
+    old_role = user.role.value
+    new_role = data.role
+
+    if old_role != new_role:
+        user.role = Role(new_role)
+
+        log_action(
+            db,
+            action="role_change",
+            result="success",
+            actor_id=actor.id,
+            entity="user",
+            entity_id=str(user.id),
+            details=f"Role changed from {old_role} to {new_role}",
+        )
+
+        db.commit()
+        db.refresh(user)
+
     return user
 
 
@@ -77,6 +95,17 @@ def deactivate_user(db: Session, user_id: int, actor: User) -> User:
 
     if user.is_active:
         user.is_active = False
+
+        log_action(
+            db,
+            action="user_deactivation",
+            result="success",
+            actor_id=actor.id,
+            entity="user",
+            entity_id=str(user.id),
+            details="User account deactivated",
+        )
+
         db.commit()
         db.refresh(user)
 
