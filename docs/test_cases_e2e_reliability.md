@@ -14,16 +14,16 @@ Common preconditions: backend running on a fresh database with `.env` set up (`J
 | Expected result | 2-3. 201 each.<br>4. `{"imported": 20, "rejected": []}`.<br>5. 201, then 200.<br>6. 11 rows for SKU-100, newest first; stock SKU-100 = 35, SKU-200 = 120.<br>7. 403.<br>8. 200, then 401. |
 | Automated | `backend/tests/test_e2e.py::test_admin_sets_up_data_and_planner_imports_sales` |
 
-## E2E-02 - Forecast, plan and report (after #33 and #38)
+## E2E-02 - Imported history flows into forecast, plan, alerts and dashboard
 
 | Item | Detail |
 |---|---|
-| Requirements | DFIP-F-010 to F-020 |
+| Requirements | DFIP-F-008, F-010 to F-018, F-023 |
 | Priority | High |
-| Preconditions | E2E-01 completed |
-| Steps | 1. Planner generates a forecast for SKU-100 and SKU-200.<br>2. Planner opens the planning recommendations.<br>3. Any role opens the dashboard.<br>4. Planner exports the planning report as CSV. |
-| Expected result | 1. A forecast for each product over the chosen horizon.<br>2. Reorder quantity = `max(0, ceil(forecast + safety_stock - stock))`; risk stockout / overstock / none.<br>3. Totals and alerts match step 2.<br>4. CSV rows match step 2. |
-| Automated | Added to `backend/tests/test_e2e.py` once the endpoints are merged. |
+| Preconditions | Admin logged in; products `SKU-LOW` (stock 5) and `SKU-HIGH` (stock 100000), safety stock 10 |
+| Steps | 1. `POST /api/sales/import` with 12 weeks of daily sales for both products, ending yesterday.<br>2. `POST /api/forecasts` with `{"horizon": 4, "unit": "week"}` for each product.<br>3. `POST /api/planning/recommendations` with each forecast id.<br>4. Log in as a viewer; `GET /api/planning/alerts` and `GET /api/dashboard`.<br>5. Admin `PATCH /api/settings` with `{"default_safety_stock": 500}`, then repeat step 3 for `SKU-LOW`.<br>6. (After #38) export the planning report as CSV. |
+| Expected result | 1. All 168 rows imported.<br>2. 201; 4 weekly points each, none negative.<br>3. `reorder_qty = max(0, ceil(forecast_demand + safety_stock - current_stock))`; `SKU-LOW` stockout with a reorder, `SKU-HIGH` overstock with reorder 0.<br>4. Alerts list exactly those two risks; dashboard totals: 2 products, 1 stockout, 1 overstock; trend has actuals.<br>5. New plan uses safety stock 500 and a larger reorder quantity.<br>6. CSV rows match step 3. |
+| Automated | `backend/tests/test_e2e.py::test_imported_history_flows_into_forecast_plan_alerts_and_dashboard` (steps 1-5; step 6 is added when #38 merges) |
 
 ## E2E-03 - Each role can only do what it is allowed to
 
