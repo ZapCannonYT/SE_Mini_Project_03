@@ -1,8 +1,19 @@
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api import auth, dashboard, forecasts, inventory, planning, products, sales, users
+from app.api import (
+    auth,
+    dashboard,
+    forecasts,
+    inventory,
+    planning,
+    products,
+    sales,
+    users,
+)
+from app.api import settings as settings_api
 
 from app.core.config import settings
 from app.core.db import init_db
@@ -28,6 +39,7 @@ app.include_router(products.router)
 app.include_router(inventory.router)
 app.include_router(sales.router)
 app.include_router(users.router)
+app.include_router(settings_api.router)
 app.include_router(forecasts.router)
 app.include_router(planning.router)
 app.include_router(dashboard.router)
