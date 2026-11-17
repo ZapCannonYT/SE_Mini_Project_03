@@ -12,7 +12,8 @@ export class ApiError extends Error {
 }
 
 export function isMockMode() {
-  return import.meta.env.VITE_USE_MOCK !== 'false'
+  // The real API is the default; the in-memory mock is opt-in (VITE_USE_MOCK=true) and used by tests.
+  return import.meta.env.VITE_USE_MOCK === 'true'
 }
 
 function buildQuery(query) {
