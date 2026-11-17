@@ -67,7 +67,7 @@ def planning_report(
             horizon=forecast.horizon,
             unit=forecast.unit.value,
             current_stock=rec.current_stock,
-            forecast_demand=rec.forecast_demand,
+            forecast_demand=round(rec.forecast_demand, 2),
             safety_stock=rec.safety_stock,
             overstock_factor=rec.overstock_factor,
             reorder_qty=rec.reorder_qty,

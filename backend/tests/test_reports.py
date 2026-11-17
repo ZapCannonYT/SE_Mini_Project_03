@@ -136,3 +136,13 @@ def test_csv_neutralises_spreadsheet_formulas(client, db, auth_headers):
     add_rec(db, "F-1", datetime(2025, 3, 1, tzinfo=UTC), name="=HYPERLINK(\"http://evil\")")
     res = get(client, auth_headers(Role.VIEWER), path="/api/reports/planning/export")
     assert parse_csv(res.text)[0]["name"].startswith("'=")
+
+
+def test_forecast_demand_is_rounded_so_table_and_csv_agree(client, db, auth_headers):
+    pid, _ = add_rec(db, "R-1", datetime(2025, 3, 1, tzinfo=UTC))
+    rec = db.query(Recommendation).filter_by(product_id=pid).first()
+    rec.forecast_demand = 478.91999999999996
+    db.commit()
+    h = auth_headers(Role.VIEWER)
+    assert get(client, h).json()[0]["forecast_demand"] == 478.92
+    assert parse_csv(get(client, h, path="/api/reports/planning/export").text)[0]["forecast_demand"] == "478.92"

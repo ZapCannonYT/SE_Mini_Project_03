@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import * as api from '../api/endpoints.js'
 import FormField from '../components/FormField.jsx'
+import { formatDateTime, formatQty } from '../lib/format.js'
 
 const EMPTY_FILTER = { product_id: '', start_date: '', end_date: '', risk: '' }
 
@@ -13,11 +14,6 @@ const toFilters = (f) => ({
   endDate: f.end_date,
   risk: f.risk,
 })
-
-function formatDateTime(iso) {
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString()
-}
 
 function downloadText(text, filename) {
   const url = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }))
@@ -209,7 +205,7 @@ export default function ReportsPage() {
                         {r.horizon === 1 ? '' : 's'}
                       </td>
                       <td>{r.current_stock}</td>
-                      <td>{r.forecast_demand}</td>
+                      <td>{formatQty(r.forecast_demand)}</td>
                       <td>{r.safety_stock}</td>
                       <td>{r.overstock_factor}</td>
                       <td>{r.reorder_qty}</td>
