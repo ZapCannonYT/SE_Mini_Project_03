@@ -68,8 +68,8 @@ Choose the data source in `frontend/.env`:
 
 | `VITE_USE_MOCK` | Data comes from | Log in with |
 |---|---|---|
-| `true` (default) | Built-in mock data, no backend needed | Demo accounts shown on the login page |
-| `false` | The real backend on port 8000 | The admin account from the backend `.env` |
+| `false` (default) | The real backend on port 8000 | The admin account from the backend `.env` |
+| `true` | Built-in demo data, no backend needed | Demo accounts shown on the login page |
 
 ```bash
 npm run dev                         # http://localhost:5173
@@ -79,7 +79,7 @@ The dev server forwards `/api` to `http://localhost:8000`, so no CORS setup is n
 
 ## 5. Demo with real data
 
-1. Start the backend (section 3) and the frontend with `VITE_USE_MOCK=false` (section 4), then log in as admin.
+1. Start the backend (section 3) and the frontend (section 4, `VITE_USE_MOCK=false`), then log in as admin.
 2. Generate recent sales history (16 weeks ending yesterday):
    ```bash
    python data/samples/make_demo_sales.py
@@ -88,7 +88,7 @@ The dev server forwards `/api` to `http://localhost:8000`, so no CORS setup is n
 4. **Sales > Import sales from CSV**: upload `data/samples/demo_sales.csv`. On an empty database all 336 rows import.
 5. Also upload `data/samples/invalid_sales.csv` to show the row-by-row error report: each bad row is listed with its line number and reason. Its two valid rows may already exist after step 4 and are then reported as duplicates.
 6. **Dashboard**: summary cards, the trend chart with a 7-day forecast, and stockout/overstock alerts.
-7. Forecasts and reorder plans: `POST /api/forecasts` then `POST /api/planning/recommendations` in Swagger (http://localhost:8000/docs).
+7. **Forecasts**: pick a product, a period and a horizon, then Generate forecast to see the chart and timestamp. **Planning**: pick the product and forecast, then Calculate to see the reorder quantity, risk and the inputs used. The dashboard alerts and the Products at risk table update.
 8. **Admin**: create a planner and a viewer, then log in as them to show what each role can do.
 
 ## 6. Reset
@@ -114,7 +114,7 @@ The Release workflow re-runs the tests and publishes a GitHub Release with the s
 |---|---|
 | Login returns 500 | `JWT_SECRET_KEY` is empty in `.env`; set it and restart the backend |
 | Website login fails with `VITE_USE_MOCK=false` | The backend is not running on port 8000 |
-| Website shows demo data instead of yours | `frontend/.env` still has `VITE_USE_MOCK=true`; set it to `false` and restart `npm run dev` |
+| Website shows demo data instead of yours | `frontend/.env` has `VITE_USE_MOCK=true`; set it to `false` and restart `npm run dev` |
 | Dashboard forecast is 0 | No recent sales; import `demo_sales.csv` from step 5 |
 | Creating a user with an `@dfip.local` email fails | Known defect #61; use another domain such as `@example.com` |
 | `uvicorn: command not found` | Activate the virtual environment first |
