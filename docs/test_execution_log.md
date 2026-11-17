@@ -34,9 +34,10 @@
 | TC-REL-01 | Not Run | The end-to-end reliability scenario was not executed in this backend-only run. |
 | TC-RPT-01 | Not Run | No report-generation test was available in this `main` snapshot. |
 | TC-RPT-02 | Not Run | No report-filter/export test was available in this `main` snapshot. |
-| TC-SALES-01 | Pass | `backend/tests/test_sales.py` ΓÇö manual sale entry and validation. |
-| TC-SALES-02 | Pass | `backend/tests/test_sales.py` ΓÇö CSV import scenarios. |
-| TC-SALES-03 | Pass | `backend/tests/test_sales.py` ΓÇö sales filtering and listing. |
+| TC-SALES-01 | Pass | `backend/tests/test_sales.py` — manual sale entry and validation. |
+| TC-SALES-02 | Pass | `backend/tests/test_sales.py` — CSV import scenarios. |
+| TC-SALES-03 | Pass | `backend/tests/test_sales.py` — sales filtering and listing. |
+
 | TC-SEC-01 | Pass | Both backend database password-hash values started with `$argon2id$`; see [database](security-evidence/TC-SEC-01-backend-database.png), [code](security-evidence/TC-SEC-01-code.png), and [service](security-evidence/TC-SEC-01-service.png). |
 | TC-SEC-02 | Pass | GET `/api/dashboard` without an Authorization token returned HTTP 401 Unauthorized; see [evidence](security-evidence/TC-SEC-02-unauthenticated.png). |
 | TC-SEC-03 | Pass | An authenticated viewer requested GET `/api/users`; the backend returned HTTP 403 Forbidden; see [viewer login](security-evidence/TC-SEC-03-viewer-login.png) and [forbidden response](security-evidence/TC-SEC-03-viewer-forbidden.png). |
@@ -92,5 +93,4 @@ The repository CI workflow runs pytest with JUnit XML and coverage output, then 
   - [Forbidden response](security-evidence/TC-SEC-03-viewer-forbidden.png)
 
 ## Overall Conclusion
-
 All three executed security test cases passed in the local testing environment. The tests verified Argon2id password hashing, rejection of unauthenticated dashboard access, and enforcement of admin-only access for the user administration endpoint. Screenshots are stored in `docs/security-evidence/`.
