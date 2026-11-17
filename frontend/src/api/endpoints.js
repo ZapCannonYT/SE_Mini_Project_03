@@ -47,6 +47,18 @@ export async function importSalesCsv(file) {
 
 export const getDashboard = () => request('/api/dashboard')
 
+// Planning reports (DFIP-F-019, F-020). Both calls take the same filters so the CSV matches the table.
+const reportQuery = ({ productId, startDate, endDate, risk } = {}) => ({
+  product_id: productId || undefined,
+  start_date: startDate || undefined,
+  end_date: endDate || undefined,
+  risk: risk || undefined,
+})
+export const getPlanningReport = (filters) =>
+  request('/api/reports/planning', { query: reportQuery(filters) })
+export const exportPlanningReportCsv = (filters) =>
+  request('/api/reports/planning/export', { query: reportQuery(filters), responseType: 'text' })
+
 // Forecasts and planning (DFIP-F-010 to F-016, F-018)
 export const createForecast = ({ productId, horizon, unit }) =>
   request('/api/forecasts', {

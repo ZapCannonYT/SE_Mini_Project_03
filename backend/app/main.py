@@ -12,6 +12,7 @@ from app.api import (
     inventory,
     planning,
     products,
+    reports,
     sales,
     users,
 )
@@ -54,6 +55,7 @@ app.include_router(users.router)
 app.include_router(settings_api.router)
 app.include_router(forecasts.router)
 app.include_router(planning.router)
+app.include_router(reports.router)
 app.include_router(dashboard.router)
 
 
