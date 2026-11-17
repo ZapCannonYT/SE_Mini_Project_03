@@ -8,11 +8,11 @@ import ProductsPage from './pages/ProductsPage.jsx'
 import InventoryPage from './pages/InventoryPage.jsx'
 import SalesPage from './pages/SalesPage.jsx'
 import DashboardPage from './pages/DashboardPage.jsx'
+import ReportsPage from './pages/ReportsPage.jsx'
 
 const PAGES = [
   ['forecasts', 'Forecasts', 'Demand forecasts per product and horizon will appear here.'],
   ['planning', 'Planning', 'Reorder and overstock planning recommendations will appear here.'],
-  ['reports', 'Reports', 'Downloadable inventory and forecast reports will appear here.'],
 ]
 
 function AdminOnly({ children }) {
@@ -47,6 +47,7 @@ export default function App() {
           <Route path="products" element={<ProductsPage />} />
           <Route path="inventory" element={<InventoryPage />} />
           <Route path="sales" element={<SalesPage />} />
+          <Route path="reports" element={<ReportsPage />} />
           {PAGES.map(([path, title, desc]) => (
             <Route
               key={path}
