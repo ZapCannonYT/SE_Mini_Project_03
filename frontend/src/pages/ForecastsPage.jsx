@@ -3,15 +3,12 @@ import { useAuth, hasRole } from '../auth/AuthContext.jsx'
 import * as api from '../api/endpoints.js'
 import FormField from '../components/FormField.jsx'
 import ForecastChart from '../components/ForecastChart.jsx'
+import { formatDateTime, formatQty } from '../lib/format.js'
 
 // Weekly horizons are 1-12 periods and monthly horizons 1-6 (API reference).
 export const MAX_HORIZON = { week: 12, month: 6 }
 
-export function formatTimestamp(iso) {
-  if (!iso) return ''
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString()
-}
+export const formatTimestamp = formatDateTime
 
 export function validateForecast({ product_id, unit, horizon }) {
   const errors = {}
@@ -198,7 +195,7 @@ export default function ForecastsPage() {
                 {selected.points.map((p) => (
                   <tr key={p.period_start}>
                     <td>{p.period_start}</td>
-                    <td>{p.predicted_qty}</td>
+                    <td>{formatQty(p.predicted_qty)}</td>
                   </tr>
                 ))}
               </tbody>

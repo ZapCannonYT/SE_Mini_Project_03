@@ -3,7 +3,7 @@ import { useAuth, hasRole } from '../auth/AuthContext.jsx'
 import * as api from '../api/endpoints.js'
 import FormField from '../components/FormField.jsx'
 import AlertsTable from '../components/AlertsTable.jsx'
-import { formatTimestamp } from './ForecastsPage.jsx'
+import { formatDateTime as formatTimestamp, formatQty } from '../lib/format.js'
 
 const EMPTY_OVERRIDES = { current_stock: '', safety_stock: '', overstock_factor: '' }
 
@@ -228,7 +228,7 @@ export default function PlanningPage() {
                   </tr>
                   <tr>
                     <th scope="row">Forecast demand</th>
-                    <td>{result.forecast_demand}</td>
+                    <td>{formatQty(result.forecast_demand)}</td>
                   </tr>
                   <tr>
                     <th scope="row">Safety stock</th>
