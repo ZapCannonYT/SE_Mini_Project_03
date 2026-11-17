@@ -1,4 +1,4 @@
-// In-memory mock backend for the DFIP API. Used when VITE_USE_MOCK !== 'false'.
+// In-memory mock backend for the DFIP API. Used only when VITE_USE_MOCK === 'true' (and in tests).
 //
 // NOTE: the accounts below are mock-only demo accounts. The password is a
 // demo value for this in-browser fake and is not a real credential.
@@ -100,6 +100,10 @@ function seed() {
     nextUserId: 4,
     nextProductId: rows.length + 1,
     nextSaleId: sales.length + 1,
+    forecasts: [],
+    recommendations: [],
+    nextForecastId: 1,
+    nextRecommendationId: 1,
   }
 }
 
@@ -363,6 +367,117 @@ function reportCsv(rows) {
   return lines.join('\r\n') + '\r\n'
 }
 
+// Forecasts and planning (DFIP-F-010 to F-016): a simple trailing-average stand-in for the real engine.
+const HORIZON_LIMITS = { week: 12, month: 6 }
+const MIN_HISTORY_WEEKS = 8
+
+function mockForecast(body) {
+  const unit = body?.unit
+  const horizon = body?.horizon
+  const productId = body?.product_id
+  if (!isInt(productId) || productId <= 0) {
+    return validationError([{ field: 'product_id', message: 'Product id must be a positive integer' }])
+  }
+  if (!['week', 'month'].includes(unit)) {
+    return validationError([{ field: 'unit', message: "Unit must be 'week' or 'month'" }])
+  }
+  if (!isInt(horizon) || horizon < 1 || horizon > HORIZON_LIMITS[unit]) {
+    return reply(400, {
+      code: 'invalid_forecast_request',
+      message: `Horizon must be 1-${HORIZON_LIMITS[unit]} ${unit}s`,
+      details: [],
+    })
+  }
+  const product = db.products.find((p) => p.id === productId && p.is_active)
+  if (!product) {
+    return reply(404, { code: 'product_not_found', message: `Active product ${productId} does not exist.`, details: [] })
+  }
+  const sales = db.sales.filter((s) => s.product_id === productId)
+  const weeks = Math.floor(sales.length / 7)
+  if (unit === 'month' || weeks < MIN_HISTORY_WEEKS) {
+    return reply(422, {
+      code: 'insufficient_history',
+      message: `At least 8 ${unit}ly periods of sales history are needed to forecast; found ${unit === 'month' ? Math.floor(sales.length / 30) : weeks}.`,
+      details: [],
+    })
+  }
+  const recent = sales.slice(-28).reduce((sum, s) => sum + s.quantity_sold, 0)
+  const perWeek = round1(recent / 4)
+  const perPeriod = unit === 'week' ? perWeek : round1(perWeek * 4.3)
+  const start = new Date()
+  start.setHours(0, 0, 0, 0)
+  const points = []
+  for (let i = 0; i < horizon; i++) {
+    const d = new Date(start)
+    d.setDate(d.getDate() + (unit === 'week' ? 7 * (i + 1) : 30 * (i + 1)))
+    points.push({ period_start: formatDate(d), predicted_qty: perPeriod })
+  }
+  const forecast = {
+    id: db.nextForecastId++,
+    product_id: productId,
+    horizon,
+    unit,
+    model_name: 'Mock trailing average',
+    model_version: '1.0',
+    generated_at: new Date().toISOString(),
+    points,
+  }
+  db.forecasts.unshift(forecast)
+  return reply(201, forecast)
+}
+
+function mockRecommendation(body) {
+  const forecast = db.forecasts.find((f) => f.id === body?.forecast_id)
+  if (!forecast) {
+    return reply(404, { code: 'forecast_not_found', message: `Forecast ${body?.forecast_id} does not exist.`, details: [] })
+  }
+  const product = db.products.find((p) => p.id === forecast.product_id)
+  const inv = db.inventory.find((i) => i.product_id === product.id)
+  const currentStock = isInt(body.current_stock) ? body.current_stock : inv ? inv.quantity : 0
+  const safetyStock = isInt(body.safety_stock) ? body.safety_stock : product.safety_stock
+  const factor = typeof body.overstock_factor === 'number' ? body.overstock_factor : product.overstock_factor
+  const demand = round1(forecast.points.reduce((sum, p) => sum + p.predicted_qty, 0))
+  const rec = {
+    id: db.nextRecommendationId++,
+    product_id: product.id,
+    forecast_id: forecast.id,
+    current_stock: currentStock,
+    forecast_demand: demand,
+    safety_stock: safetyStock,
+    overstock_factor: factor,
+    reorder_qty: reorderQty(demand, safetyStock, currentStock),
+    risk: classifyRisk(currentStock, demand, factor),
+    created_at: new Date().toISOString(),
+  }
+  db.recommendations.push(rec)
+  return reply(201, rec)
+}
+
+function mockAlerts() {
+  const alerts = []
+  for (const p of db.products.filter((x) => x.is_active)) {
+    const forecast = db.forecasts.find((f) => f.product_id === p.id)
+    if (!forecast) continue
+    const inv = db.inventory.find((i) => i.product_id === p.id)
+    const stock = inv ? inv.quantity : 0
+    const demand = round1(forecast.points.reduce((sum, pt) => sum + pt.predicted_qty, 0))
+    const risk = classifyRisk(stock, demand, p.overstock_factor)
+    if (risk === 'none') continue
+    alerts.push({
+      product_id: p.id,
+      sku: p.sku,
+      name: p.name,
+      forecast_id: forecast.id,
+      current_stock: stock,
+      forecast_demand: demand,
+      safety_stock: p.safety_stock,
+      overstock_factor: p.overstock_factor,
+      reorder_qty: reorderQty(demand, p.safety_stock, stock),
+      risk,
+    })
+  }
+  return alerts
+}
 
 const WRITERS = ['admin', 'planner']
 const ADMIN_ONLY = ['admin']
@@ -736,6 +851,29 @@ const routes = [
       return reply(200, publicUser(u))
     },
   },
+  // Forecasts and planning
+  {
+    method: 'POST',
+    path: '/api/forecasts',
+    roles: WRITERS,
+    handler: ({ body }) => mockForecast(body),
+  },
+  {
+    method: 'GET',
+    path: '/api/forecasts',
+    handler: ({ query }) =>
+      reply(
+        200,
+        db.forecasts.filter((f) => !query.product_id || f.product_id === Number(query.product_id)),
+      ),
+  },
+  {
+    method: 'POST',
+    path: '/api/planning/recommendations',
+    roles: WRITERS,
+    handler: ({ body }) => mockRecommendation(body),
+  },
+  { method: 'GET', path: '/api/planning/alerts', handler: () => reply(200, mockAlerts()) },
 ]
 
 function compile(path) {

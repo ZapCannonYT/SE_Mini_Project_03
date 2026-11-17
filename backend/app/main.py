@@ -2,6 +2,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import (
     auth,
@@ -36,6 +37,14 @@ app = FastAPI(
 )
 
 register_error_handlers(app)
+
+# CORS is limited to the configured frontend origins (SR-005); no wildcard.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origin_list,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
+)
 
 app.include_router(auth.router)
 app.include_router(audit.router)
