@@ -1,6 +1,6 @@
 # Sprint 1 - Review and Retrospective
 
-**Planned dates:** Fri 30 Oct - Tue 3 Nov 2026 (last story merged Wed 11 Nov)
+**Dates:** Fri 30 Oct - Tue 10 Nov 2026 (re-baselined on 17 Nov from the original plan of 30 Oct - 3 Nov; the last Sprint 1 story merged on Wed 11 Nov, in the backlog-clearing window 11-12 Nov)
 **Scrum Master:** Vishnu P
 **Goal:** Secure core platform: scaffold, login and RBAC, product and inventory API, forecasting and planning engine (unit tested), UI shell on mock data.
 
@@ -35,7 +35,7 @@
 
 ### Why the sprint ran late
 
-- The scaffold (#13) merged on 1 Nov and login (#16) on 3 Nov. Almost every other story needed one or both, so most work could only start on the planned last day.
+- The scaffold (#13) merged on 1 Nov and login (#16) on 3 Nov. Almost every other story needed one or both, so most work could only start near the end of the originally planned dates.
 - Several PRs waited a day or more for review or merge (for example #54, opened 6 Nov, merged 9 Nov).
 - Branches built on top of unmerged branches had to be rebased after each squash merge.
 
@@ -67,4 +67,4 @@ Each member's bullets are taken from the "Sprint 1 stand-ups" issue (#44).
 
 ## Carried over to Sprint 2
 
-Nothing. Every Sprint 1 story is closed. The late finish compressed Sprint 2 into 11-12 Nov; this is recorded in the deviations log.
+Nothing. Every Sprint 1 story is closed. The late finish moved the schedule: Sprint 1 is now 30 Oct - 10 Nov, backlog clearing 11-12 Nov and Sprint 2 13-17 Nov. The original plan was Sprint 1 30 Oct - 3 Nov and Sprint 2 4-8 Nov, later compressed to 11-12 Nov; the 17 Nov re-baseline is recorded in the deviations log.
