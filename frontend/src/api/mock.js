@@ -295,6 +295,78 @@ function buildDashboard() {
   }
 }
 
+const REPORT_COLUMNS = [
+  'recommendation_id',
+  'sku',
+  'name',
+  'created_at',
+  'horizon',
+  'unit',
+  'current_stock',
+  'forecast_demand',
+  'safety_stock',
+  'overstock_factor',
+  'reorder_qty',
+  'risk',
+]
+
+function reportRows(query) {
+  const hasVal = (v) => v !== undefined && v !== null && v !== ''
+  const { product_id: pid, start_date: start, end_date: end, risk } = query
+  const errors = []
+  if (hasVal(pid) && !/^[1-9]\d*$/.test(String(pid))) {
+    errors.push({ field: 'product_id', message: 'Product id must be a positive integer' })
+  }
+  if (hasVal(start) && !isValidDateString(start)) {
+    errors.push({ field: 'start_date', message: 'Start date must be YYYY-MM-DD' })
+  }
+  if (hasVal(end) && !isValidDateString(end)) {
+    errors.push({ field: 'end_date', message: 'End date must be YYYY-MM-DD' })
+  }
+  if (hasVal(risk) && !['none', 'stockout', 'overstock'].includes(risk)) {
+    errors.push({ field: 'risk', message: 'Risk must be none, stockout or overstock' })
+  }
+  if (!errors.length && hasVal(start) && hasVal(end) && start > end) {
+    errors.push({ field: 'start_date', message: 'Start date must be on or before end date' })
+  }
+  if (errors.length) return { errors }
+  const createdAt = new Date().toISOString()
+  const today = todayString()
+  const inRange = (!hasVal(start) || today >= start) && (!hasVal(end) || today <= end)
+  const rows = !inRange
+    ? []
+    : buildDashboard()
+        .items.filter(
+          (i) =>
+            (!hasVal(pid) || i.product_id === Number(pid)) && (!hasVal(risk) || i.risk === risk),
+        )
+        .map((i) => ({
+          recommendation_id: i.product_id,
+          product_id: i.product_id,
+          sku: i.sku,
+          name: i.name,
+          forecast_id: i.product_id,
+          horizon: 1,
+          unit: 'week',
+          current_stock: i.current_stock,
+          forecast_demand: i.forecast_demand,
+          safety_stock: i.safety_stock,
+          overstock_factor: i.overstock_factor,
+          reorder_qty: i.reorder_qty,
+          risk: i.risk,
+          created_at: createdAt,
+        }))
+  return { rows }
+}
+
+function reportCsv(rows) {
+  const lines = [REPORT_COLUMNS.join(',')]
+  for (const r of rows) {
+    lines.push(REPORT_COLUMNS.map((c) => `"${String(r[c]).replace(/"/g, '""')}"`).join(','))
+  }
+  return lines.join('\r\n') + '\r\n'
+}
+
 // Forecasts and planning (DFIP-F-010 to F-016): a simple trailing-average stand-in for the real engine.
 const HORIZON_LIMITS = { week: 12, month: 6 }
 const MIN_HISTORY_WEEKS = 8
@@ -685,6 +757,24 @@ const routes = [
 
   // Dashboard (provisional contract, see README)
   { method: 'GET', path: '/api/dashboard', handler: () => reply(200, buildDashboard()) },
+
+  // Planning reports (DFIP-F-019, F-020): one row per product, built from the dashboard plan
+  {
+    method: 'GET',
+    path: '/api/reports/planning',
+    handler: ({ query }) => {
+      const result = reportRows(query)
+      return result.errors ? validationError(result.errors) : reply(200, result.rows)
+    },
+  },
+  {
+    method: 'GET',
+    path: '/api/reports/planning/export',
+    handler: ({ query }) => {
+      const result = reportRows(query)
+      return result.errors ? validationError(result.errors) : reply(200, reportCsv(result.rows))
+    },
+  },
 
   // Users (admin only)
   {

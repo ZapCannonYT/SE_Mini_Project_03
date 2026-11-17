@@ -1,4 +1,4 @@
-# Sprint 2 Test Execution and Defect Log
+﻿# Sprint 2 Test Execution and Defect Log
 
 **Executed:** 2026-11-16  
 **Source:** latest `main` (`e6d4858`) plus the #34 performance test branch and security test execution from Issue #31 (2026-11-16).  
@@ -10,33 +10,34 @@
 
 | STP test case | Result | Evidence / reason |
 |---|---|---|
-| TC-ADM-01 | Pass | `backend/tests/test_users.py` — admin user creation and validation tests. |
+| TC-ADM-01 | Pass | `backend/tests/test_users.py` ΓÇö admin user creation and validation tests. |
 | TC-AUD-01 | Not Run | No audit-log test or audit-log implementation was available in this `main` snapshot. |
-| TC-AUTH-01 | Pass | `backend/tests/test_auth.py` — successful login. |
-| TC-AUTH-02 | Pass | `backend/tests/test_auth.py` — incorrect-password and unknown-user login rejection. |
-| TC-AUTH-03 | Pass | `backend/tests/test_auth.py` — logout and authentication behavior. |
-| TC-CFG-01 | Pass | `backend/tests/test_settings.py` and `backend/tests/test_config.py` — settings/configuration behavior. |
-| TC-DASH-01 | Pass | `backend/tests/test_dashboard_api.py` — populated and empty dashboard responses. |
-| TC-DASH-02 | Pass | `backend/tests/test_dashboard_api.py` — dashboard trend, sparse-history, and authentication behavior. |
-| TC-FCST-01 | Pass | `backend/tests/test_forecasting.py` — forecast horizon and `backend/tests/test_forecasts_api.py` API coverage. |
-| TC-FCST-02 | Pass | `backend/tests/test_forecasting.py` and `backend/tests/test_preprocessing.py` — insufficient history handling. |
-| TC-FCST-03 | Pass | `backend/tests/test_forecasting.py` — forecast result metadata. |
-| TC-INV-01 | Pass | `backend/tests/test_inventory.py` — inventory is retrievable. |
-| TC-INV-02 | Pass | `backend/tests/test_inventory.py` — planner update persistence and invalid quantity rejection. |
+| TC-AUTH-01 | Pass | `backend/tests/test_auth.py` ΓÇö successful login. |
+| TC-AUTH-02 | Pass | `backend/tests/test_auth.py` ΓÇö incorrect-password and unknown-user login rejection. |
+| TC-AUTH-03 | Pass | `backend/tests/test_auth.py` ΓÇö logout and authentication behavior. |
+| TC-CFG-01 | Pass | `backend/tests/test_settings.py` and `backend/tests/test_config.py` ΓÇö settings/configuration behavior. |
+| TC-DASH-01 | Pass | `backend/tests/test_dashboard_api.py` ΓÇö populated and empty dashboard responses. |
+| TC-DASH-02 | Pass | `backend/tests/test_dashboard_api.py` ΓÇö dashboard trend, sparse-history, and authentication behavior. |
+| TC-FCST-01 | Pass | `backend/tests/test_forecasting.py` ΓÇö forecast horizon and `backend/tests/test_forecasts_api.py` API coverage. |
+| TC-FCST-02 | Pass | `backend/tests/test_forecasting.py` and `backend/tests/test_preprocessing.py` ΓÇö insufficient history handling. |
+| TC-FCST-03 | Pass | `backend/tests/test_forecasting.py` ΓÇö forecast result metadata. |
+| TC-INV-01 | Pass | `backend/tests/test_inventory.py` ΓÇö inventory is retrievable. |
+| TC-INV-02 | Pass | `backend/tests/test_inventory.py` ΓÇö planner update persistence and invalid quantity rejection. |
 | TC-MAINT-01 | Not Run | The STP maintenance test was not separately executed or recorded in the backend suite. |
-| TC-PERF-01 | Pass | `backend/tests/test_performance.py` — 30 measured requests per endpoint; p90 below 3 seconds. See [performance results](performance_results.md). |
-| TC-PERF-02 | Pass | `backend/tests/test_performance.py` — 104-week single-product forecast below 10 seconds. See [performance results](performance_results.md). |
-| TC-PLAN-01 | Pass | `backend/tests/test_planning.py` and `backend/tests/test_planning_api.py` — recommendation calculation and API response. |
-| TC-PLAN-02 | Pass | `backend/tests/test_planning.py` — planning risk classification. |
-| TC-PLAN-03 | Pass | `backend/tests/test_planning.py` and `backend/tests/test_planning_api.py` — recommendation inputs/defaults. |
-| TC-PLAN-04 | Pass | `backend/tests/test_planning_api.py` — planning alerts and alert defaults. |
-| TC-PROD-01 | Pass | `backend/tests/test_products.py` — product creation and listing. |
+| TC-PERF-01 | Pass | `backend/tests/test_performance.py` ΓÇö 30 measured requests per endpoint; p90 below 3 seconds. See [performance results](performance_results.md). |
+| TC-PERF-02 | Pass | `backend/tests/test_performance.py` ΓÇö 104-week single-product forecast below 10 seconds. See [performance results](performance_results.md). |
+| TC-PLAN-01 | Pass | `backend/tests/test_planning.py` and `backend/tests/test_planning_api.py` ΓÇö recommendation calculation and API response. |
+| TC-PLAN-02 | Pass | `backend/tests/test_planning.py` ΓÇö planning risk classification. |
+| TC-PLAN-03 | Pass | `backend/tests/test_planning.py` and `backend/tests/test_planning_api.py` ΓÇö recommendation inputs/defaults. |
+| TC-PLAN-04 | Pass | `backend/tests/test_planning_api.py` ΓÇö planning alerts and alert defaults. |
+| TC-PROD-01 | Pass | `backend/tests/test_products.py` ΓÇö product creation and listing. |
 | TC-REL-01 | Not Run | The end-to-end reliability scenario was not executed in this backend-only run. |
 | TC-RPT-01 | Not Run | No report-generation test was available in this `main` snapshot. |
 | TC-RPT-02 | Not Run | No report-filter/export test was available in this `main` snapshot. |
 | TC-SALES-01 | Pass | `backend/tests/test_sales.py` — manual sale entry and validation. |
 | TC-SALES-02 | Pass | `backend/tests/test_sales.py` — CSV import scenarios. |
 | TC-SALES-03 | Pass | `backend/tests/test_sales.py` — sales filtering and listing. |
+
 | TC-SEC-01 | Pass | Both backend database password-hash values started with `$argon2id$`; see [database](security-evidence/TC-SEC-01-backend-database.png), [code](security-evidence/TC-SEC-01-code.png), and [service](security-evidence/TC-SEC-01-service.png). |
 | TC-SEC-02 | Pass | GET `/api/dashboard` without an Authorization token returned HTTP 401 Unauthorized; see [evidence](security-evidence/TC-SEC-02-unauthenticated.png). |
 | TC-SEC-03 | Pass | An authenticated viewer requested GET `/api/users`; the backend returned HTTP 403 Forbidden; see [viewer login](security-evidence/TC-SEC-03-viewer-login.png) and [forbidden response](security-evidence/TC-SEC-03-viewer-forbidden.png). |
@@ -50,7 +51,7 @@
 
 | Defect | Severity | Status | Affected test / evidence |
 |---|---|---|---|
-| [#61 — Admin cannot create users with an `@dfip.local` email](https://github.com/ZapCannonYT/SE_Mini_Project_03/issues/61) | Minor | Open | Reported against TC-REL-01. Existing GitHub issue; not reproduced or reclassified in this run. |
+| [#61 ΓÇö Admin cannot create users with an `@dfip.local` email](https://github.com/ZapCannonYT/SE_Mini_Project_03/issues/61) | Minor | Open | Reported against TC-REL-01. Existing GitHub issue; not reproduced or reclassified in this run. |
 
 ## CI evidence
 
@@ -92,5 +93,4 @@ The repository CI workflow runs pytest with JUnit XML and coverage output, then 
   - [Forbidden response](security-evidence/TC-SEC-03-viewer-forbidden.png)
 
 ## Overall Conclusion
-
 All three executed security test cases passed in the local testing environment. The tests verified Argon2id password hashing, rejection of unauthenticated dashboard access, and enforcement of admin-only access for the user administration endpoint. Screenshots are stored in `docs/security-evidence/`.

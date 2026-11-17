@@ -28,6 +28,8 @@ All endpoints except login and `/health` need `Authorization: Bearer <token>` fr
 | GET | `/api/planning/recommendations/{recommendation_id}` | Retrieve a recommendation and all inputs used | all roles | - | 200 `RecommendationOut` |
 | GET | `/api/planning/alerts` | List active products currently at stockout or overstock risk | all roles | - | 200 list of `PlanningAlertOut` |
 | GET | `/api/dashboard` | Dashboard totals, active-product plans and 30-day actual/7-day forecast trend (DFIP-F-017/F-018) | all roles | - | 200 `DashboardOut` |
+| GET | `/api/reports/planning` | Stored planning recommendations with the inputs used, newest first (DFIP-F-019) | all roles | query `product_id`, `start_date`, `end_date` (created on or after/before, inclusive), `risk` (`none`, `stockout`, `overstock`), all optional | 200 list of `PlanningReportRow` |
+| GET | `/api/reports/planning/export` | The same filtered report as a CSV download, `planning_report.csv` (DFIP-F-020) | all roles | same query parameters | 200 `text/csv` |
 | GET | `/health` | Liveness check | anyone | - | 200 |
 
 ## Errors
@@ -113,6 +115,10 @@ Valid rows are saved together in one transaction; `row` is the line number in th
 ### RecommendationCreate and RecommendationOut
 
 `RecommendationCreate` requires a `forecast_id`. `current_stock`, `safety_stock`, and `overstock_factor` are optional overrides. For safety stock and overstock factor, explicit request values take precedence over the saved global defaults (`default_safety_stock`, `default_overstock_factor`); when no global value exists, the product values are used. `RecommendationOut` returns the complete input snapshot (`current_stock`, `forecast_demand`, `safety_stock`, `overstock_factor`), `reorder_qty`, `risk`, and associated IDs. Alerts use the saved global defaults when available, otherwise each product's values, and include only non-`none` risks.
+
+### PlanningReportRow
+
+`recommendation_id`, `product_id`, `sku`, `name`, `forecast_id`, `horizon`, `unit` (`week` or `month`), `current_stock`, `forecast_demand`, `safety_stock`, `overstock_factor`, `reorder_qty`, `risk`, `created_at`. The CSV export has the columns `recommendation_id, sku, name, created_at, horizon, unit, current_stock, forecast_demand, safety_stock, overstock_factor, reorder_qty, risk`, one line per table row in the same order. Text cells that start with `=`, `+`, `-` or `@` get a leading `'` so spreadsheet programs do not run them as formulas. `start_date` after `end_date` returns 422 `validation_error`.
 
 ### DashboardOut
 
