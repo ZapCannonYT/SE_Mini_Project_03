@@ -50,6 +50,16 @@ uvicorn app.main:app --reload
 
 Then open http://localhost:8000/docs for the interactive API docs.
 
+To run over HTTPS (self-signed development certificate, see [run guide section 6](docs/run_guide.md)):
+
+```bash
+python scripts/make_dev_cert.py
+cd backend
+uvicorn app.main:app --ssl-keyfile ../certs/dev.key --ssl-certfile ../certs/dev.crt --port 8000
+```
+
+The API accepts browser calls only from the origins listed in `CORS_ORIGINS` in `.env`.
+
 Full install, frontend, demo and release steps: [docs/run_guide.md](docs/run_guide.md).
 
 ## Contributing
