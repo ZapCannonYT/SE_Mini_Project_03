@@ -20,13 +20,13 @@ The app is served at http://localhost:5173. The dev server proxies `/api` and `/
 
 ## Mock mode vs real API
 
-Mock mode is ON unless `VITE_USE_MOCK` is exactly `false`. In mock mode no network calls are made; an in-memory fake backend (`src/api/mock.js`) answers every request with about 250ms latency and mirrors the real API's roles, validation rules and error shapes. Data resets on page reload.
+The app talks to the real backend API by default. Mock mode is opt-in: set `VITE_USE_MOCK=true` (the tests always do). In mock mode no network calls are made; an in-memory fake backend (`src/api/mock.js`) answers every request with about 250ms latency and mirrors the real API's roles, validation rules and error shapes. Data resets on page reload.
 
-To use the real backend, copy the example env file and turn mock mode off:
+`.env.example` already has `VITE_USE_MOCK=false`. To try the UI without a backend, copy it and turn mock mode on:
 
 ```
 cp .env.example .env.local
-# edit .env.local: VITE_USE_MOCK=false
+# edit .env.local: VITE_USE_MOCK=true
 ```
 
 `VITE_API_BASE_URL` stays empty to use the same origin via the Vite proxy.
@@ -74,6 +74,7 @@ frontend/
       ProductForm.jsx    product create/edit form
       TrendChart.jsx     Chart.js actual vs forecast line chart
       AlertsTable.jsx    stockout/overstock alerts with filter
+      ForecastChart.jsx  Chart.js forecast line chart
     lib/
       planning.js        reorderQty and classifyRisk (mirrors backend planning rules)
     pages/
@@ -84,6 +85,8 @@ frontend/
       InventoryPage.jsx
       SalesPage.jsx
       DashboardPage.jsx
+      ForecastsPage.jsx
+      PlanningPage.jsx
     test/
       setup.js           Vitest setup (jest-dom, mock reset)
 ```
@@ -98,9 +101,9 @@ frontend/
 
 Write controls are hidden for roles that cannot use them; the API enforces the same rules. Forms validate on the client and show per-field messages, and server 422/409 errors are mapped back onto the fields.
 
-### Provisional sales API
+### Sales API
 
-The sales backend lands in Sprint 2, so the `/api/sales` endpoints are provisional. They are implemented only in the mock (`src/api/mock.js`) and in `src/api/endpoints.js`, and may change when the backend story lands. Assumed contract:
+The `/api/sales` endpoints are served by the backend (see `docs/api_reference.md`); the mock mirrors them. Contract:
 
 - `GET /api/sales?product_id=&start_date=&end_date=` (any role) returns a list of `{id, product_id, sku, name, sale_date, quantity_sold}`, newest date first. Dates are `YYYY-MM-DD`. 422 if a date is invalid or start is after end.
 - `POST /api/sales` (admin, planner) with `{product_id, sale_date, quantity_sold}` returns 201 with the record. 422 `validation_error` for missing or unknown fields, non-integer or negative quantity, bad or future date; 404 `product_not_found`; 409 `sale_exists` when the product already has a record on that date.
@@ -114,9 +117,9 @@ The mock seeds 60 days of deterministic sales history for the active products, e
 
 Planning rules (same as `backend/app/analytics/planning.py`): `reorder_qty = max(0, ceil(forecast_demand + safety_stock - current_stock))`; risk is `stockout` if stock < forecast, `overstock` if stock > overstock_factor * forecast, otherwise `none`.
 
-### Provisional dashboard API
+### Dashboard API
 
-The forecast, planning and alerts backend is a Sprint 2 story, so `GET /api/dashboard` is implemented only in the mock and in `src/api/endpoints.js` (`getDashboard()`), and may change. Assumed contract (any role):
+`GET /api/dashboard` (`getDashboard()` in `src/api/endpoints.js`) is served by the backend; the mock mirrors it. Contract (any role):
 
 ```
 {
@@ -128,3 +131,17 @@ The forecast, planning and alerts backend is a Sprint 2 story, so `GET /api/dash
 ```
 
 `items` covers active products only. `trend` has the last 30 days of actuals (`forecast` is null except on the last actual day) followed by 7 forecast days (`actual` is null). The mock forecast is the average daily sales of the last 28 days times 7, rounded to 1 decimal.
+
+## Forecasts and planning
+
+`/forecasts` (DFIP-F-010 to F-012, F-016): choose a product, weekly (1-12) or monthly (1-6) periods and a horizon. Generate forecast (admin, planner) calls `POST /api/forecasts` and shows the model, generation time, a Chart.js line chart and a table of forecast units per period. Earlier forecasts for the product (`GET /api/forecasts?product_id=`) can be shown again. An API error such as `insufficient_history` is shown as the message.
+
+`/planning` (DFIP-F-013 to F-016, F-018): choose a product and one of its stored forecasts, optionally override current stock, safety stock or the overstock factor, and Calculate (`POST /api/planning/recommendations`). The result shows reorder quantity, risk and every input used. The Products at risk table comes from `GET /api/planning/alerts`. Viewers see the table only.
+
+## Reports
+
+`/reports` (DFIP-F-019, F-020, all roles): the planning report from `GET /api/reports/planning` with product, from/to date and risk filters. Export CSV downloads `GET /api/reports/planning/export` with the same filters, so the file has the same rows as the table.
+
+## HTTPS
+
+`npm run dev:https` serves the site over TLS with the certificate from `python scripts/make_dev_cert.py` and proxies `/api` to the HTTPS backend on port 8000 (see `docs/run_guide.md`).

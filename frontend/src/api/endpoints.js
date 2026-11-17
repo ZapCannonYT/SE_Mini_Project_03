@@ -45,5 +45,17 @@ export async function importSalesCsv(file) {
   return request('/api/sales/import', { method: 'POST', body: formData, formData })
 }
 
-// Dashboard endpoint is provisional until the forecasting backend lands (see README).
 export const getDashboard = () => request('/api/dashboard')
+
+// Forecasts and planning (DFIP-F-010 to F-016, F-018)
+export const createForecast = ({ productId, horizon, unit }) =>
+  request('/api/forecasts', {
+    method: 'POST',
+    body: { product_id: productId, horizon, unit },
+  })
+export const listForecasts = (productId) =>
+  request('/api/forecasts', { query: { product_id: productId || undefined } })
+export const getForecast = (id) => request(`/api/forecasts/${id}`)
+export const createRecommendation = (body) =>
+  request('/api/planning/recommendations', { method: 'POST', body })
+export const listPlanningAlerts = () => request('/api/planning/alerts')
