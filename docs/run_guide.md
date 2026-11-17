@@ -42,6 +42,7 @@ The other settings in `.env` work as they are:
 | `DATABASE_URL` | `sqlite:///./dfip.db` | SQLite file, created in the folder you start the backend from |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | values in `backend/app/core/config.py` | First admin account, created on the first start. Set your own in `.env` for anything beyond a local demo. |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | 60 | How long a login lasts |
+| `CORS_ORIGINS` | `https://localhost:5173,http://localhost:5173` | Browser origins allowed to call the API |
 
 Check the install, then start the API:
 
@@ -91,11 +92,33 @@ The dev server forwards `/api` to `http://localhost:8000`, so no CORS setup is n
 7. Forecasts and reorder plans: `POST /api/forecasts` then `POST /api/planning/recommendations` in Swagger (http://localhost:8000/docs).
 8. **Admin**: create a planner and a viewer, then log in as them to show what each role can do.
 
-## 6. Reset
+## 6. HTTPS (DFIP-SR-005)
+
+Credentials travel in the login request, so run the demo over HTTPS. From the repository root:
+
+```bash
+python scripts/make_dev_cert.py     # creates certs/dev.crt and certs/dev.key (gitignored)
+cd backend
+uvicorn app.main:app --ssl-keyfile ../certs/dev.key --ssl-certfile ../certs/dev.crt --port 8000
+```
+
+In the second terminal serve the website over TLS too, which proxies `/api` to the HTTPS backend:
+
+```bash
+cd frontend
+npm run dev:https                   # https://localhost:5173
+```
+
+- The certificate is self-signed for `localhost`, so the browser shows a warning once; choose Advanced, then Continue.
+- `make_dev_cert.py` needs the `openssl` command (included with Git for Windows). Use `--force` to replace the certificate.
+- Check: `curl -k https://localhost:8000/health` returns `{"status": "ok"}`.
+- The API only accepts browser calls from the origins in `CORS_ORIGINS` (default `https://localhost:5173,http://localhost:5173`), never `*`. Add your deployed frontend origin there in `.env`.
+
+## 7. Reset
 
 Stop the backend and delete `dfip.db` (in the folder you started it from) to start with an empty database. The admin account is created again on the next start.
 
-## 7. Release (Sprint end)
+## 8. Release (Sprint end)
 
 The repo owner tags the release once every Sprint story is merged and `main` is green:
 
@@ -108,7 +131,7 @@ git push origin v1.0.0
 
 The Release workflow re-runs the tests and publishes a GitHub Release with the source bundle, the built frontend and the test reports (`test-results.xml`, `coverage.xml`).
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 | Problem | Fix |
 |---|---|
