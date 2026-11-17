@@ -38,7 +38,7 @@ docs/            SRS, SAD, STP
 python -m venv .venv
 .venv\Scripts\activate          # Windows  (source .venv/bin/activate on Linux/macOS)
 pip install -r requirements.txt
-copy .env.example .env          # cp on Linux/macOS
+copy .env.example .env          # cp on Linux/macOS, then set JWT_SECRET_KEY in .env
 pytest
 ```
 
@@ -49,6 +49,8 @@ uvicorn app.main:app --reload
 ```
 
 Then open http://localhost:8000/docs for the interactive API docs.
+
+Full install, frontend, demo and release steps: [docs/run_guide.md](docs/run_guide.md).
 
 ## Contributing
 
