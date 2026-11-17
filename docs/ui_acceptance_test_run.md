@@ -7,7 +7,7 @@
 
 | Item | Value |
 |---|---|
-| Build | `main` (`0327dc9`) plus the open PRs for #37 (forecast and planning pages), #38 (reports) and #39 (HTTPS and CORS), merged together on a scratch branch. The PRs are not on `main` yet, so these pages were tested on that combined build. |
+| Build | `main` plus pull requests #72 (forecast and planning pages), #75 (reports) and #73 (HTTPS and CORS), which were still open when the run was done on 17 Nov and have since merged. The run used those three branches merged together on a scratch branch. |
 | Backend | Real FastAPI backend, new SQLite database, `VITE_USE_MOCK` off (no mock data) |
 | Data | 3 products (SKU-100, SKU-200, SKU-300), 336 sales rows from `data/samples/make_demo_sales.py` imported through the API, planner and viewer users created by the admin |
 | Browser | Built-in Chromium browser pane, viewport 1366 x 768 (common desktop resolution) |
