@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -7,7 +8,7 @@ import react from '@vitejs/plugin-react'
 // certificate from scripts/make_dev_cert.py and proxies /api to the HTTPS backend.
 export default defineConfig(({ mode }) => {
   const useHttps = mode === 'https'
-  const certDir = path.resolve(__dirname, '../certs')
+  const certDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../certs')
   const https = useHttps
     ? {
         key: fs.readFileSync(path.join(certDir, 'dev.key')),
