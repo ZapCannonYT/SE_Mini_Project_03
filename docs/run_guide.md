@@ -42,6 +42,7 @@ The other settings in `.env` work as they are:
 | `DATABASE_URL` | `sqlite:///./dfip.db` | SQLite file, created in the folder you start the backend from |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | values in `backend/app/core/config.py` | First admin account, created on the first start. Set your own in `.env` for anything beyond a local demo. |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | 60 | How long a login lasts |
+| `CORS_ORIGINS` | `https://localhost:5173,http://localhost:5173` | Browser origins allowed to call the API |
 
 Check the install, then start the API:
 
@@ -68,8 +69,8 @@ Choose the data source in `frontend/.env`:
 
 | `VITE_USE_MOCK` | Data comes from | Log in with |
 |---|---|---|
-| `true` (default) | Built-in mock data, no backend needed | Demo accounts shown on the login page |
-| `false` | The real backend on port 8000 | The admin account from the backend `.env` |
+| `false` (default) | The real backend on port 8000 | The admin account from the backend `.env` |
+| `true` | Built-in demo data, no backend needed | Demo accounts shown on the login page |
 
 ```bash
 npm run dev                         # http://localhost:5173
@@ -79,7 +80,7 @@ The dev server forwards `/api` to `http://localhost:8000`, so no CORS setup is n
 
 ## 5. Demo with real data
 
-1. Start the backend (section 3) and the frontend with `VITE_USE_MOCK=false` (section 4), then log in as admin.
+1. Start the backend (section 3) and the frontend (section 4, `VITE_USE_MOCK=false`), then log in as admin.
 2. Generate recent sales history (16 weeks ending yesterday):
    ```bash
    python data/samples/make_demo_sales.py
@@ -88,14 +89,36 @@ The dev server forwards `/api` to `http://localhost:8000`, so no CORS setup is n
 4. **Sales > Import sales from CSV**: upload `data/samples/demo_sales.csv`. On an empty database all 336 rows import.
 5. Also upload `data/samples/invalid_sales.csv` to show the row-by-row error report: each bad row is listed with its line number and reason. Its two valid rows may already exist after step 4 and are then reported as duplicates.
 6. **Dashboard**: summary cards, the trend chart with a 7-day forecast, and stockout/overstock alerts.
-7. Forecasts and reorder plans: `POST /api/forecasts` then `POST /api/planning/recommendations` in Swagger (http://localhost:8000/docs).
+7. **Forecasts**: pick a product, a period and a horizon, then Generate forecast to see the chart and timestamp. **Planning**: pick the product and forecast, then Calculate to see the reorder quantity, risk and the inputs used. The dashboard alerts and the Products at risk table update.
 8. **Admin**: create a planner and a viewer, then log in as them to show what each role can do.
 
-## 6. Reset
+## 6. HTTPS (DFIP-SR-005)
+
+Credentials travel in the login request, so run the demo over HTTPS. From the repository root:
+
+```bash
+python scripts/make_dev_cert.py     # creates certs/dev.crt and certs/dev.key (gitignored)
+cd backend
+uvicorn app.main:app --ssl-keyfile ../certs/dev.key --ssl-certfile ../certs/dev.crt --port 8000
+```
+
+In the second terminal serve the website over TLS too, which proxies `/api` to the HTTPS backend:
+
+```bash
+cd frontend
+npm run dev:https                   # https://localhost:5173
+```
+
+- The certificate is self-signed for `localhost`, so the browser shows a warning once; choose Advanced, then Continue.
+- `make_dev_cert.py` needs the `openssl` command (included with Git for Windows). Use `--force` to replace the certificate.
+- Check: `curl -k https://localhost:8000/health` returns `{"status": "ok"}`.
+- The API only accepts browser calls from the origins in `CORS_ORIGINS` (default `https://localhost:5173,http://localhost:5173`), never `*`. Add your deployed frontend origin there in `.env`.
+
+## 7. Reset
 
 Stop the backend and delete `dfip.db` (in the folder you started it from) to start with an empty database. The admin account is created again on the next start.
 
-## 7. Release (Sprint end)
+## 8. Release (Sprint end)
 
 The repo owner tags the release once every Sprint story is merged and `main` is green:
 
@@ -108,13 +131,13 @@ git push origin v1.0.0
 
 The Release workflow re-runs the tests and publishes a GitHub Release with the source bundle, the built frontend and the test reports (`test-results.xml`, `coverage.xml`).
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 | Problem | Fix |
 |---|---|
 | Login returns 500 | `JWT_SECRET_KEY` is empty in `.env`; set it and restart the backend |
 | Website login fails with `VITE_USE_MOCK=false` | The backend is not running on port 8000 |
-| Website shows demo data instead of yours | `frontend/.env` still has `VITE_USE_MOCK=true`; set it to `false` and restart `npm run dev` |
+| Website shows demo data instead of yours | `frontend/.env` has `VITE_USE_MOCK=true`; set it to `false` and restart `npm run dev` |
 | Dashboard forecast is 0 | No recent sales; import `demo_sales.csv` from step 5 |
 | Creating a user with an `@dfip.local` email fails | Known defect #61; use another domain such as `@example.com` |
 | `uvicorn: command not found` | Activate the virtual environment first |

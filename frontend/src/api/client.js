@@ -12,7 +12,8 @@ export class ApiError extends Error {
 }
 
 export function isMockMode() {
-  return import.meta.env.VITE_USE_MOCK !== 'false'
+  // The real API is the default; the in-memory mock is opt-in (VITE_USE_MOCK=true) and used by tests.
+  return import.meta.env.VITE_USE_MOCK === 'true'
 }
 
 function buildQuery(query) {
@@ -25,7 +26,11 @@ function buildQuery(query) {
   return s ? `?${s}` : ''
 }
 
-export async function request(path, { method = 'GET', body, query, formData } = {}) {
+// responseType 'text' returns the raw body (used for CSV downloads) instead of parsed JSON.
+export async function request(
+  path,
+  { method = 'GET', body, query, formData, responseType = 'json' } = {},
+) {
   const token = getToken()
   let status
   let data
@@ -52,6 +57,7 @@ export async function request(path, { method = 'GET', body, query, formData } = 
     }
     status = res.status
     const text = await res.text()
+    if (res.ok && responseType === 'text') return text
     try {
       data = text ? JSON.parse(text) : null
     } catch {

@@ -8,12 +8,9 @@ import ProductsPage from './pages/ProductsPage.jsx'
 import InventoryPage from './pages/InventoryPage.jsx'
 import SalesPage from './pages/SalesPage.jsx'
 import DashboardPage from './pages/DashboardPage.jsx'
-
-const PAGES = [
-  ['forecasts', 'Forecasts', 'Demand forecasts per product and horizon will appear here.'],
-  ['planning', 'Planning', 'Reorder and overstock planning recommendations will appear here.'],
-  ['reports', 'Reports', 'Downloadable inventory and forecast reports will appear here.'],
-]
+import ReportsPage from './pages/ReportsPage.jsx'
+import ForecastsPage from './pages/ForecastsPage.jsx'
+import PlanningPage from './pages/PlanningPage.jsx'
 
 function AdminOnly({ children }) {
   const { user } = useAuth()
@@ -47,13 +44,9 @@ export default function App() {
           <Route path="products" element={<ProductsPage />} />
           <Route path="inventory" element={<InventoryPage />} />
           <Route path="sales" element={<SalesPage />} />
-          {PAGES.map(([path, title, desc]) => (
-            <Route
-              key={path}
-              path={path}
-              element={<PlaceholderPage title={title} description={desc} />}
-            />
-          ))}
+          <Route path="forecasts" element={<ForecastsPage />} />
+          <Route path="planning" element={<PlanningPage />} />
+          <Route path="reports" element={<ReportsPage />} />
           <Route
             path="admin"
             element={

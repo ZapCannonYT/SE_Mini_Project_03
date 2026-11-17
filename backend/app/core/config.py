@@ -15,5 +15,11 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
     admin_email: str = "admin@dfip.local"
     admin_password: str = "Admin@123"
+    # Origins allowed to call the API from a browser (comma separated). Never "*".
+    cors_origins: str = "https://localhost:5173,http://localhost:5173"
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip() and o.strip() != "*"]
 
 settings = Settings()

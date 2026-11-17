@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { formatQty } from '../lib/format.js'
 
 const FILTERS = [
   ['all', 'All'],
@@ -60,7 +61,7 @@ export default function AlertsTable({ items }) {
                 <td>{i.sku}</td>
                 <td>{i.name}</td>
                 <td>{i.current_stock}</td>
-                <td>{i.forecast_demand}</td>
+                <td>{formatQty(i.forecast_demand)}</td>
                 <td>{i.reorder_qty}</td>
                 <td>
                   {i.risk === 'stockout' ? (
